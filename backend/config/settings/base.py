@@ -23,10 +23,7 @@ load_dotenv(BASE_DIR / '.env')
 
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get(
-    'SECRET_KEY',
-    'django-insecure-i+k3@10j729t7a_gm%8df8#ne+3j8$r^ar4sx46v89qp5m=#1_',
-)
+SECRET_KEY = os.environ['SECRET_KEY']
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG', 'False') == 'True'
@@ -95,6 +92,13 @@ DATABASES = {
         'PORT': _db_url.port or 5432,
     }
 }
+
+
+# Quran Foundation API
+# https://api.quran.foundation
+
+QURAN_API_CLIENT_ID = os.environ['QURAN_API_CLIENT_ID']
+QURAN_API_CLIENT_SECRET = os.environ['QURAN_API_CLIENT_SECRET']
 
 
 # Password validation
