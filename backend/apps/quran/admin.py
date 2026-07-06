@@ -5,7 +5,7 @@ from apps.quran.models import Ayah, Ruku, Surah, Word, WordMeaning, WordNote, Wo
 
 @admin.register(Surah)
 class SurahAdmin(admin.ModelAdmin):
-    list_display = ('number', 'name_english', 'name_bangla', 'name_arabic', 'total_ayah')
+    list_display = ('id','number', 'name_english', 'name_bangla', 'name_arabic', 'total_ayah')
     search_fields = ('name_english', 'name_bangla', 'name_arabic')
     ordering = ('number',)
 
