@@ -1,8 +1,8 @@
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
 
-from apps.quran.models import Ruku, Surah
-from apps.quran.serializers import RukuSerializer, SurahSerializer
+from apps.quran.models import Ayah, Ruku, Surah
+from apps.quran.serializers import AyahSerializer, RukuSerializer, SurahSerializer
 
 
 class SurahListView(generics.ListAPIView):
@@ -38,3 +38,25 @@ class SurahRukuListView(generics.ListAPIView):
 
     def get_queryset(self):
         return Ruku.objects.filter(surah__number=self.kwargs['surah_number'])
+
+
+def _ayah_queryset():
+    return Ayah.objects.select_related('surah', 'ruku').prefetch_related(
+        'word_occurrences__word', 'word_occurrences__meaning'
+    )
+
+
+class SurahAyahListView(generics.ListAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = AyahSerializer
+
+    def get_queryset(self):
+        return _ayah_queryset().filter(surah__number=self.kwargs['surah_number'])
+
+
+class AyahDetailView(generics.RetrieveUpdateAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = AyahSerializer
+    lookup_field = 'verse_key'
+    queryset = _ayah_queryset()
+    http_method_names = ['get', 'patch', 'head', 'options']
