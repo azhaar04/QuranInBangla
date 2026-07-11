@@ -44,6 +44,32 @@ class WordSerializer(serializers.ModelSerializer):
         read_only_fields = ['normalized_text']
 
 
+class WordOccurrenceForWordSerializer(serializers.ModelSerializer):
+    ayah_verse_key = serializers.CharField(source='ayah.verse_key', read_only=True)
+    meaning_text = serializers.CharField(
+        source='meaning.meaning_text', read_only=True, default=None
+    )
+
+    class Meta:
+        model = WordOccurrence
+        fields = ['id', 'ayah', 'ayah_verse_key', 'position', 'meaning', 'meaning_text']
+        read_only_fields = ['ayah', 'position']
+
+
+class WordDetailSerializer(serializers.ModelSerializer):
+    meanings = WordMeaningSerializer(many=True, read_only=True)
+    note = WordNoteSerializer(read_only=True)
+    occurrences = WordOccurrenceForWordSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Word
+        fields = [
+            'id', 'arabic_text', 'normalized_text', 'is_meaning_final',
+            'meanings', 'note', 'occurrences',
+        ]
+        read_only_fields = ['arabic_text', 'normalized_text']
+
+
 class WordOccurrenceSerializer(serializers.ModelSerializer):
     word_arabic_text = serializers.CharField(source='word.arabic_text', read_only=True)
     meaning_text = serializers.CharField(

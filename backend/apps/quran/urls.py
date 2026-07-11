@@ -8,6 +8,8 @@ from apps.quran.views import (
     SurahDetailView,
     SurahListView,
     SurahRukuListView,
+    WordDetailView,
+    WordListView,
 )
 
 app_name = 'quran'
@@ -20,4 +22,6 @@ urlpatterns = [
     path('rukus/', RukuListView.as_view(), name='ruku_list'),
     path('rukus/<int:ruku_number>/', RukuDetailView.as_view(), name='ruku_detail'),
     path('ayahs/<str:verse_key>/', AyahDetailView.as_view(), name='ayah_detail'),
+    path('words/', WordListView.as_view(), name='word_list'),
+    path('words/<int:pk>/', WordDetailView.as_view(), name='word_detail'),
 ]

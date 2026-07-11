@@ -1,8 +1,15 @@
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
 
-from apps.quran.models import Ayah, Ruku, Surah
-from apps.quran.serializers import AyahSerializer, RukuSerializer, SurahSerializer
+from apps.quran.models import Ayah, Ruku, Surah, Word
+from apps.quran.serializers import (
+    AyahSerializer,
+    RukuSerializer,
+    SurahSerializer,
+    WordDetailSerializer,
+    WordSerializer,
+)
+from apps.quran.services.text_normalizer import strip_diacritics
 
 
 class SurahListView(generics.ListAPIView):
@@ -59,4 +66,43 @@ class AyahDetailView(generics.RetrieveUpdateAPIView):
     serializer_class = AyahSerializer
     lookup_field = 'verse_key'
     queryset = _ayah_queryset()
+    http_method_names = ['get', 'patch', 'head', 'options']
+
+
+class WordListView(generics.ListAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = WordSerializer
+
+    def get_queryset(self):
+        queryset = Word.objects.prefetch_related('meanings', 'note')
+        params = self.request.query_params
+
+        search = params.get('search')
+        if search:
+            queryset = queryset.filter(normalized_text__icontains=strip_diacritics(search))
+
+        is_meaning_final = params.get('is_meaning_final')
+        if is_meaning_final is not None:
+            queryset = queryset.filter(is_meaning_final=is_meaning_final.lower() in ('true', '1'))
+
+        has_meaning = params.get('has_meaning')
+        if has_meaning is not None:
+            if has_meaning.lower() in ('true', '1'):
+                queryset = queryset.filter(meanings__isnull=False).distinct()
+            else:
+                queryset = queryset.filter(meanings__isnull=True)
+
+        part_of_speech = params.get('part_of_speech')
+        if part_of_speech:
+            queryset = queryset.filter(note__part_of_speech=part_of_speech)
+
+        return queryset.order_by('arabic_text')
+
+
+class WordDetailView(generics.RetrieveUpdateAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = WordDetailSerializer
+    queryset = Word.objects.prefetch_related(
+        'meanings', 'note', 'occurrences__ayah', 'occurrences__meaning'
+    )
     http_method_names = ['get', 'patch', 'head', 'options']
