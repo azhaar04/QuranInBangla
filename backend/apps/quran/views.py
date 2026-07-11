@@ -1,12 +1,15 @@
+from django.shortcuts import get_object_or_404
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 
-from apps.quran.models import Ayah, Ruku, Surah, Word
+from apps.quran.models import Ayah, Ruku, Surah, Word, WordMeaning, WordOccurrence
 from apps.quran.serializers import (
     AyahSerializer,
     RukuSerializer,
     SurahSerializer,
     WordDetailSerializer,
+    WordMeaningSerializer,
     WordSerializer,
 )
 from apps.quran.services.text_normalizer import strip_diacritics
@@ -106,3 +109,55 @@ class WordDetailView(generics.RetrieveUpdateAPIView):
         'meanings', 'note', 'occurrences__ayah', 'occurrences__meaning'
     )
     http_method_names = ['get', 'patch', 'head', 'options']
+
+
+class WordMeaningListView(generics.ListCreateAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = WordMeaningSerializer
+
+    def get_queryset(self):
+        return WordMeaning.objects.filter(word_id=self.kwargs['word_id'])
+
+    def perform_create(self, serializer):
+        word = get_object_or_404(Word, pk=self.kwargs['word_id'])
+        serializer.save(word=word)
+
+
+class WordMeaningDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = WordMeaningSerializer
+    queryset = WordMeaning.objects.all()
+    http_method_names = ['patch', 'delete', 'head', 'options']
+
+    def perform_destroy(self, instance):
+        if not instance.is_default:
+            default_meaning = WordMeaning.objects.filter(
+                word=instance.word, is_default=True
+            ).first()
+            WordOccurrence.objects.filter(meaning=instance).update(meaning=default_meaning)
+        instance.delete()
+
+
+class WordMeaningSetDefaultView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = WordMeaningSerializer
+    queryset = WordMeaning.objects.all()
+    http_method_names = ['patch', 'head', 'options']
+
+    def patch(self, request, *args, **kwargs):
+        meaning = self.get_object()
+
+        old_default = WordMeaning.objects.filter(
+            word=meaning.word, is_default=True
+        ).exclude(pk=meaning.pk).first()
+        if old_default:
+            WordOccurrence.objects.filter(word=meaning.word, meaning=old_default).update(
+                meaning=meaning
+            )
+            old_default.is_default = False
+            old_default.save(update_fields=['is_default'])
+
+        meaning.is_default = True
+        meaning.save(update_fields=['is_default'])
+
+        return Response(self.get_serializer(meaning).data)

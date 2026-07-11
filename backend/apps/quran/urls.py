@@ -10,6 +10,9 @@ from apps.quran.views import (
     SurahRukuListView,
     WordDetailView,
     WordListView,
+    WordMeaningDetailView,
+    WordMeaningListView,
+    WordMeaningSetDefaultView,
 )
 
 app_name = 'quran'
@@ -24,4 +27,11 @@ urlpatterns = [
     path('ayahs/<str:verse_key>/', AyahDetailView.as_view(), name='ayah_detail'),
     path('words/', WordListView.as_view(), name='word_list'),
     path('words/<int:pk>/', WordDetailView.as_view(), name='word_detail'),
+    path('words/<int:word_id>/meanings/', WordMeaningListView.as_view(), name='word_meaning_list'),
+    path('word-meanings/<int:pk>/', WordMeaningDetailView.as_view(), name='word_meaning_detail'),
+    path(
+        'word-meanings/<int:pk>/set-default/',
+        WordMeaningSetDefaultView.as_view(),
+        name='word_meaning_set_default',
+    ),
 ]

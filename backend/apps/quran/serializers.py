@@ -22,7 +22,7 @@ class WordMeaningSerializer(serializers.ModelSerializer):
     class Meta:
         model = WordMeaning
         fields = ['id', 'word', 'meaning_text', 'is_default']
-        read_only_fields = ['is_default']
+        read_only_fields = ['word', 'is_default']
 
 
 class WordNoteSerializer(serializers.ModelSerializer):
