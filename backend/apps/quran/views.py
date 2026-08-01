@@ -95,10 +95,6 @@ class WordListView(generics.ListAPIView):
             else:
                 queryset = queryset.filter(meanings__isnull=True)
 
-        part_of_speech = params.get('part_of_speech')
-        if part_of_speech:
-            queryset = queryset.filter(note__part_of_speech=part_of_speech)
-
         return queryset.order_by('arabic_text')
 
 

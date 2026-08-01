@@ -29,8 +29,9 @@ class WordNoteSerializer(serializers.ModelSerializer):
     class Meta:
         model = WordNote
         fields = [
-            'meaning_basra', 'meaning_kufa', 'root', 'part_of_speech',
-            'verb_form', 'morphology', 'derived_forms', 'lemma', 'note', 'updated_at',
+            'root', 'meaning_basra', 'meaning_kufa', 'meaning_baghdad',
+            'pattern', 'note_for_pattern', 'grammatical_information',
+            'derived_forms', 'notes', 'updated_at',
         ]
 
 

@@ -157,15 +157,15 @@ One-to-one with `word`. All fields are optional text fields.
 |---|---|---|
 | id | integer PK | |
 | word_id | FK → word unique | one-to-one |
+| root | text | Arabic root |
 | meaning_basra | text | Meaning per Basra grammar school |
 | meaning_kufa | text | Meaning per Kufa grammar school |
-| root | varchar(100) | Arabic root |
-| part_of_speech | varchar(20) | noun / verb / particle / other |
-| verb_form | varchar(50) | Only relevant if part_of_speech = verb |
-| morphology | varchar(255) | |
-| derived_forms | text | Multiple values, newline-separated |
-| lemma | varchar(100) | |
-| note | text | Large free-text, up to 1–2 pages |
+| meaning_baghdad | text | Meaning per Baghdad grammar school |
+| pattern | text | Morphological pattern |
+| note_for_pattern | text | Free note explaining the pattern |
+| grammatical_information | text | Free-text grammatical info (POS, verb form, etc.) |
+| derived_forms | jsonb | List of strings, e.g. `["يَكْتُبُ", "كَاتِب"]` |
+| notes | text | Large free-text, up to 1–2 pages |
 | updated_at | timestamp | |
 
 ---

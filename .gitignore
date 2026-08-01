@@ -17,7 +17,11 @@ backend/media/
 .DS_Store
 Thumbs.db
 
+# Sample images
+sample_image/
+
 # Node
 frontend/node_modules/
 frontend/dist/
 frontend/.env
+

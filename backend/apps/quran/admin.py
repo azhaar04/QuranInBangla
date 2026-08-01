@@ -70,6 +70,5 @@ class WordOccurrenceAdmin(admin.ModelAdmin):
 
 @admin.register(WordNote)
 class WordNoteAdmin(admin.ModelAdmin):
-    list_display = ('word', 'root', 'part_of_speech', 'lemma', 'updated_at')
-    list_filter = ('part_of_speech',)
-    search_fields = ('word__arabic_text', 'root', 'lemma')
+    list_display = ('word', 'root', 'updated_at')
+    search_fields = ('word__arabic_text', 'root')

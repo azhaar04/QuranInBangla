@@ -131,24 +131,16 @@ class WordOccurrence(models.Model):
 
 
 class WordNote(models.Model):
-    class PartOfSpeech(models.TextChoices):
-        NOUN = 'noun', 'Noun'
-        VERB = 'verb', 'Verb'
-        PARTICLE = 'particle', 'Particle'
-        OTHER = 'other', 'Other'
-
     word = models.OneToOneField(Word, on_delete=models.CASCADE, related_name='note')
+    root = models.TextField(blank=True)
     meaning_basra = models.TextField(blank=True)
     meaning_kufa = models.TextField(blank=True)
-    root = models.CharField(max_length=100, blank=True)
-    part_of_speech = models.CharField(
-        max_length=20, choices=PartOfSpeech.choices, blank=True
-    )
-    verb_form = models.CharField(max_length=50, blank=True)
-    morphology = models.CharField(max_length=255, blank=True)
-    derived_forms = models.TextField(blank=True)
-    lemma = models.CharField(max_length=100, blank=True)
-    note = models.TextField(blank=True)
+    meaning_baghdad = models.TextField(blank=True)
+    pattern = models.TextField(blank=True)
+    note_for_pattern = models.TextField(blank=True)
+    grammatical_information = models.TextField(blank=True)
+    derived_forms = models.JSONField(default=list, blank=True)
+    notes = models.TextField(blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
