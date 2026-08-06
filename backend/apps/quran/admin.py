@@ -63,7 +63,7 @@ class WordMeaningAdmin(admin.ModelAdmin):
 
 @admin.register(WordOccurrence)
 class WordOccurrenceAdmin(admin.ModelAdmin):
-    list_display = ('ayah', 'position', 'word', 'meaning')
+    list_display = ('ayah', 'position', 'word', 'raw_text', 'meaning')
     list_filter = ('meaning__is_default',)
     search_fields = ('ayah__verse_key', 'word__arabic_text')
 

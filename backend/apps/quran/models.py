@@ -1,4 +1,5 @@
 from django.db import models
+import unicodedata
 
 from apps.quran.services.text_normalizer import strip_diacritics
 
@@ -76,6 +77,7 @@ class Word(models.Model):
         return self.arabic_text
 
     def save(self, *args, **kwargs):
+        self.arabic_text = unicodedata.normalize('NFC', self.arabic_text)
         self.normalized_text = strip_diacritics(self.arabic_text)
         super().save(*args, **kwargs)
 
@@ -111,6 +113,7 @@ class WordOccurrence(models.Model):
     ayah = models.ForeignKey(Ayah, on_delete=models.CASCADE, related_name='word_occurrences')
     word = models.ForeignKey(Word, on_delete=models.CASCADE, related_name='occurrences')
     position = models.PositiveIntegerField()
+    raw_text = models.TextField(blank=True)
     meaning = models.ForeignKey(
         WordMeaning,
         on_delete=models.SET_NULL,

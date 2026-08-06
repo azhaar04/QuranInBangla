@@ -1,7 +1,10 @@
+import unicodedata
+
 from django.core.management.base import BaseCommand, CommandError
 
 from apps.quran.models import Ayah, Ruku, Surah, Word, WordOccurrence
 from apps.quran.services.quran_api_client import QuranAPIClient
+from apps.quran.services.text_normalizer import strip_quranic_annotations
 
 
 class Command(BaseCommand):
@@ -41,15 +44,26 @@ class Command(BaseCommand):
                     if word_data['char_type_name'] != 'word':
                         continue
 
+                    # 1) NFC-normalize first, so the same visual word is
+                    #    never split into two `word` rows just because the
+                    #    API sent a precomposed vs. decomposed form.
+                    # 2) Strip positional marks (waqf signs, rub-el-hizb,
+                    #    silent-letter marks) to get the canonical form used
+                    #    for word identity/meaning/note linking.
+                    # The raw (NFC-normalized but un-stripped) text is kept
+                    # on the occurrence so nothing is lost for display.
+                    raw_text = unicodedata.normalize('NFC', word_data['text_uthmani'])
+                    canonical_text = strip_quranic_annotations(raw_text)
+
                     word, word_created = Word.objects.get_or_create(
-                        arabic_text=word_data['text_uthmani'],
+                        arabic_text=canonical_text,
                     )
                     words_created += word_created
 
                     _, occurrence_created = WordOccurrence.objects.get_or_create(
                         ayah=ayah,
                         position=word_data['position'],
-                        defaults={'word': word},
+                        defaults={'word': word, 'raw_text': raw_text},
                     )
                     occurrences_created += occurrence_created
 
