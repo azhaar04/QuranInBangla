@@ -61,7 +61,9 @@ QuranInBangla/
 │   │   │   └── management/commands/
 │   │   │       ├── import_surahs.py
 │   │   │       ├── import_rukus.py
-│   │   │       └── import_ayahs_and_words.py
+│   │   │       ├── import_ayahs_and_words.py
+│   │   │       ├── audit_word_marks.py
+│   │   │       └── verify_data_integrity.py
 │   │   └── accounts/
 │   ├── requirements/
 │   │   ├── base.txt
@@ -114,7 +116,7 @@ QuranInBangla/
 | ruku_id | FK → ruku | nullable |
 | ayah_number | integer | Within surah |
 | verse_key | varchar(10) unique | e.g. "2:255" |
-| arabic_text | text | Uthmani script, from API, never modified |
+| arabic_text | text | Uthmani script, from API, never modified — includes waqf signs etc. as-is |
 | translation_text | text | Client's manual Bangla translation |
 | notes | text | Per-ayah free note |
 | status | varchar(10) | 'draft' or 'final' |
@@ -125,8 +127,8 @@ QuranInBangla/
 | Column | Type | Notes |
 |---|---|---|
 | id | integer PK | |
-| arabic_text | text unique | Exact match (eat ≠ eats ≠ eating) |
-| normalized_text | text | Diacritics-stripped, auto-generated for search |
+| arabic_text | text unique | **Canonical form**, NOT raw API text. Quranic annotation marks (waqf signs, rub-el-hizb, sajdah marker, silent-letter marks — U+06D6–U+06ED) are stripped, and the result is NFC-normalized. Exact match on this canonical form (e.g. `eat` ≠ `eats` ≠ `eating`, different harakat/case endings ARE different words) — see "Word `arabic_text` canonicalization" below |
+| normalized_text | text | Diacritics-stripped (harakat + tashkeel + annotations), auto-generated for search |
 | is_meaning_final | boolean | default false — for progress tracking only, not a lock |
 | created_at | timestamp | |
 | updated_at | timestamp | |
@@ -146,6 +148,7 @@ QuranInBangla/
 | ayah_id | FK → ayah | |
 | word_id | FK → word | |
 | position | integer | Order of word within the ayah |
+| raw_text | text | **Exact text as it appears at this specific position** — including any waqf sign, rub-el-hizb marker, or silent-letter mark. `word.arabic_text` is the cleaned canonical form (identity/meaning/note linking); this field is what word-by-word display should render, so nothing is lost visually |
 | meaning_id | FK → word_meaning | nullable until client assigns first meaning |
 
 unique_together: (ayah_id, position)
@@ -168,13 +171,69 @@ One-to-one with `word`. All fields are optional text fields.
 | notes | text | Large free-text, up to 1–2 pages |
 | updated_at | timestamp | |
 
+### `activity_log`
+Powers the dashboard's "Recent Activity" feed. NOT a version/content-diff
+history — see "No version/edit history" below.
+
+| Column | Type | Notes |
+|---|---|---|
+| id | integer PK | |
+| user_id | FK → user | |
+| action_type | varchar(30) | `ayah_translated` / `ayah_updated` / `word_meaning_added` / `word_meaning_updated` |
+| ayah_id | FK → ayah | nullable — set for ayah-related actions |
+| word_id | FK → word | nullable — set for word-related actions, and optionally alongside `ayah_id` when the word action happened in the context of a specific ayah (e.g. editing a word meaning from within an ayah view) |
+| created_at | timestamp | |
+
+For `ayah_translated` / `ayah_updated`, only `ayah_id` is set. For
+`word_meaning_added` / `word_meaning_updated`, `word_id` is always set, and
+`ayah_id` is set too whenever the action happened in the context of a
+specific ayah — so both can be non-null together. Not mutually exclusive;
+no DB constraint enforces "exactly one."
+
 ---
 
 ## Key Design Decisions
 
 ### Word uniqueness
 `eat`, `eats`, `eating` are stored as 3 separate unique `word` rows.
-No lemmatization or root-based merging.
+No lemmatization or root-based merging. Different harakat/case endings are
+different words on purpose.
+
+### Word `arabic_text` canonicalization
+`word.arabic_text` is a **cleaned, canonical** form — not the raw text the
+API returns for that word position. Two things happen to the raw API text
+before it becomes `word.arabic_text`:
+
+1. **Strip Quranic annotation marks** (`strip_quranic_annotations()` in
+   `text_normalizer.py`) — waqf/pause signs, the rub-el-hizb marker, the
+   sajdah marker, and silent-letter/madd recitation marks (Unicode
+   U+06D6–U+06ED) are removed. These marks are positional/contextual (they
+   land on some occurrences of a word but not others), so leaving them in
+   `arabic_text` would fork one lexical word into multiple `word` rows and
+   break meaning defaulting, `word_note` sharing, and progress tracking.
+   Standard harakat/tashkeel (U+064B–U+065F) are NOT touched — they stay,
+   since different harakat are meaningfully different words here.
+2. **NFC-normalize** (`unicodedata.normalize('NFC', ...)`) — the Quran
+   Foundation API doesn't always send the same word in the same Unicode
+   normalization form (precomposed vs. decomposed, e.g. `آ` as one
+   codepoint vs. `ا` + a combining madda). Without this, the same visual
+   word could exist as two different `unique` rows. Normalization MUST
+   happen again *after* stripping annotation marks, not only before —
+   removing a mark that sits between two combining diacritics can change
+   what NFC's canonical ordering considers "adjacent," so a stripped string
+   isn't guaranteed to still be in canonical form. `Word.save()` re-applies
+   NFC as a safety net on every save regardless of call site.
+
+The **exact original text** (marks included, whatever form the API sent)
+is preserved per-occurrence in `word_occurrence.raw_text` — this is what
+the frontend renders for word-by-word display, so nothing is lost visually
+even though `word.arabic_text` is cleaned.
+
+Two read-only management commands support this: `audit_word_marks` (scans
+`word.arabic_text` for any leftover non-standard character) and
+`verify_data_integrity` (checks NFC duplicate groups, `raw_text` ↔
+`arabic_text` consistency, empty words, and per-ayah position-sequence
+gaps). Run both after any fresh import.
 
 ### Word meaning: default + override
 - First meaning given to a word → `is_default = true` in `word_meaning`.
@@ -187,18 +246,54 @@ No lemmatization or root-based merging.
 - `word.is_meaning_final` is a progress flag only. It does NOT lock or prevent
   future overrides.
 
-### normalized_text
-Auto-generated from `arabic_text` by stripping Arabic diacritics (harakat/
-tashkeel, Unicode range U+064B–U+065F and related). Use the `pyarabic`
-library for reliable stripping. Stored in `word.normalized_text` to enable
-fast diacritics-insensitive search without runtime computation.
+### normalized_text vs. arabic_text — two different normalizer functions
+`apps/quran/services/text_normalizer.py` has two functions, used for two
+different purposes — do not conflate them:
+
+- `strip_diacritics()` — full strip: tashkeel/harakat (U+064B–U+065F),
+  tatweel, AND Quranic annotation marks (U+06D6–U+06ED). Used ONLY for
+  `word.normalized_text`, which powers diacritics-insensitive search.
+- `strip_quranic_annotations()` — narrower strip: ONLY Quranic annotation
+  marks (U+06D6–U+06ED) and stray control characters (e.g. U+200F).
+  Harakat/tashkeel are kept. Used to compute the canonical `word.arabic_text`
+  (see above) — harakat differences must be preserved here since they're
+  meaningfully different words, unlike for search.
 
 ### Ayah arabic_text
 Stored as-is from Quran Foundation API (Uthmani script). Never reconstructed
-from word occurrences. This is the source of truth for display.
+from word occurrences. This is the source of truth for display. Unlike
+`word.arabic_text`, this is NEVER cleaned/stripped/normalized.
 
 ### No version/edit history
-No changelog or history table needed. Overwriting is fine.
+No changelog or content-diff/version history. Overwriting `translation_text`,
+`meaning_text`, `word_note` fields etc. is fine — old values are not
+retained and cannot be reverted to.
+
+**Exception:** `activity_log` exists to power the dashboard's Recent
+Activity feed. It is NOT a version/diff history — it stores only lightweight
+action metadata (who, what type of action, when, which ayah/word), never
+old/new field values, and offers no revert capability. See "Activity
+logging" below.
+
+### Activity logging
+- A row is created ONLY on an explicit Save action — never on autosave.
+- Created in the DRF view layer (`perform_update()` / `perform_create()`),
+  not via model `save()` overrides or signals, because `request.user` is
+  needed and isn't reliably available at the model layer.
+- Four `action_type` values, one pair per content type, split on
+  first-time vs. edited-again:
+  - `ayah_translated` — `translation_text`/`notes` went from empty to
+    filled for the first time.
+  - `ayah_updated` — `translation_text`/`notes` already had content and
+    was edited again.
+  - `word_meaning_added` — the first `word_meaning` ever created for that
+    word (mirrors the `is_first_meaning` check already in
+    `WordMeaning.save()`).
+  - `word_meaning_updated` — an existing meaning was edited, or an
+    additional (non-first) meaning was added to a word that already had one.
+- Clicking an activity item in the dashboard navigates to the relevant
+  ayah or word page (frontend derives the route from `ayah_id`/`word_id`
+  in the API response, e.g. via `ayah.verse_key` or `word.arabic_text`).
 
 ### No multi-ayah context notes
 Only per-ayah notes (single `ayah.notes` field). No cross-ayah grouping.
@@ -219,6 +314,18 @@ All import logic lives in:
 
 Use `get_or_create()` to make commands safely re-runnable.
 
+`import_ayahs_and_words` computes `word_occurrence.raw_text` (NFC-normalized,
+marks intact) and `word.arabic_text` (NFC-normalized, marks stripped) from
+the same API segment text — see "Word `arabic_text` canonicalization" above
+before touching this command.
+
+After any fresh/re-import, run:
+```bash
+python manage.py audit_word_marks
+python manage.py verify_data_integrity
+```
+Both are read-only and should report zero issues.
+
 ---
 
 ## Features (v1)
@@ -236,6 +343,9 @@ Use `get_or_create()` to make commands safely re-runnable.
 11. **Progress dashboard** — ayah translation progress + word meaning progress
 12. **PDF export** — per-surah PDF (future)
 13. **Public website** — read-only view of ayah + word meanings + translation (future)
+14. **Recent Activity feed** — dashboard shows a live feed of recent ayah/word
+    edits (see `activity_log` and "Activity logging" above); clicking an
+    entry navigates to that ayah's or word's page
 
 ---
 
@@ -269,5 +379,9 @@ QURAN_API_CLIENT_SECRET=
 - Do NOT auto-translate any Arabic text
 - Do NOT modify `ayah.arabic_text` after import
 - Do NOT reconstruct ayah text from word occurrences
-- Do NOT add version/history tracking
+- Do NOT add content-diff/version history (`activity_log` is metadata-only,
+  not a diff/version history — see "No version/edit history")
 - Do NOT add multi-user roles (single admin only for now)
+- Do NOT create `activity_log` rows on autosave — only on explicit Save
+- Do NOT strip Quranic annotation marks from `ayah.arabic_text` or
+  `word_occurrence.raw_text` — only `word.arabic_text` gets cleaned

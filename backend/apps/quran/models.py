@@ -1,6 +1,6 @@
 from django.db import models
 import unicodedata
-
+from django.conf import settings
 from apps.quran.services.text_normalizer import strip_diacritics
 
 
@@ -151,3 +151,31 @@ class WordNote(models.Model):
 
     def __str__(self):
         return f'Note for {self.word.arabic_text}'
+
+
+
+class ActivityLog(models.Model):
+    class ActionType(models.TextChoices):
+        AYAH_TRANSLATED = 'ayah_translated', 'Ayah Translated'
+        AYAH_UPDATED = 'ayah_updated', 'Ayah Updated'
+        WORD_MEANING_ADDED = 'word_meaning_added', 'Word Meaning Added'
+        WORD_MEANING_UPDATED = 'word_meaning_updated', 'Word Meaning Updated'
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='activity_logs')
+    action_type = models.CharField(max_length=30, choices=ActionType.choices)
+    ayah = models.ForeignKey(Ayah, on_delete=models.CASCADE, null=True, blank=True, related_name='activity_logs')
+    word = models.ForeignKey(Word, on_delete=models.CASCADE, null=True, blank=True, related_name='activity_logs')
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        db_table = 'activity_log'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        if self.ayah_id:
+            target = self.ayah.verse_key
+        elif self.word_id:
+            target = self.word.arabic_text
+        else:
+            target = '—'
+        return f'{self.user} · {self.get_action_type_display()} · {target}'

@@ -1,6 +1,15 @@
 from django.contrib import admin
 
-from apps.quran.models import Ayah, Ruku, Surah, Word, WordMeaning, WordNote, WordOccurrence
+from apps.quran.models import (
+    ActivityLog,
+    Ayah,
+    Ruku,
+    Surah,
+    Word,
+    WordMeaning,
+    WordNote,
+    WordOccurrence,
+)
 
 
 @admin.register(Surah)
@@ -72,3 +81,16 @@ class WordOccurrenceAdmin(admin.ModelAdmin):
 class WordNoteAdmin(admin.ModelAdmin):
     list_display = ('word', 'root', 'updated_at')
     search_fields = ('word__arabic_text', 'root')
+
+
+@admin.register(ActivityLog)
+class ActivityLogAdmin(admin.ModelAdmin):
+    list_display = ('created_at', 'user', 'action_type', 'ayah', 'word')
+    list_filter = ('action_type', 'user')
+    search_fields = ('user__username', 'ayah__verse_key', 'word__arabic_text')
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False

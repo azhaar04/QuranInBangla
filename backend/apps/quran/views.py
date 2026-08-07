@@ -3,7 +3,7 @@ from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from apps.quran.models import Ayah, Ruku, Surah, Word, WordMeaning, WordOccurrence
+from apps.quran.models import ActivityLog, Ayah, Ruku, Surah, Word, WordMeaning, WordOccurrence
 from apps.quran.serializers import (
     AyahSerializer,
     RukuSerializer,
@@ -70,6 +70,27 @@ class AyahDetailView(generics.RetrieveUpdateAPIView):
     lookup_field = 'verse_key'
     queryset = _ayah_queryset()
     http_method_names = ['get', 'patch', 'head', 'options']
+
+    def perform_update(self, serializer):
+        instance = serializer.instance
+        had_content_before = bool(instance.translation_text or instance.notes)
+        old_translation_text = instance.translation_text
+        old_notes = instance.notes
+
+        ayah = serializer.save()
+
+        if ayah.translation_text == old_translation_text and ayah.notes == old_notes:
+            return
+
+        ActivityLog.objects.create(
+            user=self.request.user,
+            action_type=(
+                ActivityLog.ActionType.AYAH_UPDATED
+                if had_content_before
+                else ActivityLog.ActionType.AYAH_TRANSLATED
+            ),
+            ayah=ayah,
+        )
 
 
 class WordListView(generics.ListAPIView):
