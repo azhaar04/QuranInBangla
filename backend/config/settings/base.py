@@ -44,6 +44,7 @@ INSTALLED_APPS = [
 
     'rest_framework',
     'rest_framework_simplejwt.token_blacklist',
+    'corsheaders',
 
     'apps.quran',
     'apps.accounts',
@@ -51,6 +52,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -101,6 +103,15 @@ DATABASES = {
 
 QURAN_API_CLIENT_ID = os.environ['QURAN_API_CLIENT_ID']
 QURAN_API_CLIENT_SECRET = os.environ['QURAN_API_CLIENT_SECRET']
+
+
+# CORS
+# https://github.com/adamchainz/django-cors-headers
+
+CORS_ALLOWED_ORIGINS = os.environ.get(
+    'CORS_ALLOWED_ORIGINS',
+    'http://localhost:5173,http://127.0.0.1:5173',
+).split(',')
 
 
 # Django REST Framework
