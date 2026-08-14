@@ -32,7 +32,7 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-svh flex-col items-center justify-center gap-3 bg-brand-dark px-4 py-5">
-      <Card className="w-full max-w-md">
+      <Card className="w-full max-w-md shadow-login-card">
         <div className="flex flex-col items-center gap-2 bg-brand-dark px-8 py-5">
           <Logo size={48} />
           <h1 className="text-center text-[26.67px] leading-none font-medium tracking-[0.4px]">

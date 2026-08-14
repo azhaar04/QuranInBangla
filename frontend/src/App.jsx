@@ -3,6 +3,7 @@ import { AuthProvider } from './context/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
+import SurahListPage from './pages/SurahListPage'
 import ComingSoonPage from './pages/ComingSoonPage'
 
 function App() {
@@ -23,7 +24,7 @@ function App() {
             path="/surahs"
             element={
               <ProtectedRoute>
-                <ComingSoonPage title="সূরার তালিকা" />
+                <SurahListPage />
               </ProtectedRoute>
             }
           />

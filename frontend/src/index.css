@@ -40,6 +40,20 @@
   --color-logo-badge: rgba(201, 162, 39, 0.14);
   --color-logo-badge-border: rgba(201, 162, 39, 0.4);
 
+  --color-surface-subtle-2: #faf9f5;
+  --color-border-subtle: #e0ddd6;
+  --color-avatar-neutral-bg: #f1efe8;
+  --color-progress-track-2: #f0ede6;
+  --color-progress-fill: #1d9e75;
+  --color-muted-2: #a09c94;
+  --color-divider: #f1eee7;
+  --color-status-success-bg: #e1f5ee;
+  --color-status-success-text: #085041;
+  --color-status-warning-bg: #faeeda;
+  --color-status-warning-text: #633806;
+
+  --shadow-login-card: 0px 40px 106.667px 0px rgba(0, 0, 0, 0.35);
+
   /* Latin glyphs render in Inter; the browser falls through to Noto Sans
      Bengali (with Kalpurush as an extra fallback) for Bengali glyphs —
      one stack covers both scripts without per-element font classing. */

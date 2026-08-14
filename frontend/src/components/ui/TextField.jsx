@@ -23,7 +23,7 @@ export default function TextField({
         )}
         <input
           type={inputType}
-          className={`w-full rounded-lg border border-transparent bg-input-bg py-2.5 text-sm text-input-text placeholder:text-neutral-500 focus:border-brand-dark focus:outline-none focus:ring-1 focus:ring-brand-dark ${
+          className={`h-14 w-full rounded-[10.667px] border border-input-bg bg-white text-[18px] text-input-text placeholder:text-neutral-500 focus:border-brand-dark focus:outline-none focus:ring-1 focus:ring-brand-dark ${
             Icon ? 'pl-10' : 'pl-3'
           } ${isPassword ? 'pr-10' : 'pr-3'}`}
           {...props}

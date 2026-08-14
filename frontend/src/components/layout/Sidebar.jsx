@@ -35,7 +35,7 @@ function NavItem({ label, icon: Icon, to, end }) {
       {({ isActive }) => (
         <>
           <Icon className="h-[21.333px] w-[21.333px] shrink-0" />
-          <span>{label}</span>
+          <span className="min-w-0 flex-1 truncate">{label}</span>
           {isActive && (
             <span className="absolute right-0 top-1/2 h-full w-[2.667px] -translate-y-1/2 rounded-[2.667px] bg-gold" />
           )}
@@ -50,12 +50,12 @@ export default function Sidebar() {
   const initial = username ? username[0].toUpperCase() : '?'
 
   return (
-    <aside className="flex h-svh w-[293.333px] shrink-0 flex-col bg-brand-dark">
+    <aside className="flex h-svh w-[clamp(220px,18vw,293.333px)] shrink-0 flex-col bg-brand-dark">
       <div className="flex items-center gap-4 border-b-[1.333px] border-sidebar-line px-6 py-5">
         <div className="flex h-[50.667px] w-[50.667px] shrink-0 items-center justify-center rounded-xl border-[1.333px] border-logo-badge-border bg-logo-badge">
           <Logo size={26} />
         </div>
-        <span className="text-[17.333px] font-semibold whitespace-nowrap">
+        <span className="min-w-0 truncate text-[17.333px] font-semibold">
           <span className="text-gold">Quran</span>{' '}
           <span className="text-white">in</span>{' '}
           <span className="text-gold">Bangla</span>
