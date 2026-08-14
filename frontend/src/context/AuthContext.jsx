@@ -6,10 +6,12 @@ const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
   const [isAuthenticated, setIsAuthenticated] = useState(() => Boolean(tokenStorage.getAccess()))
+  const [username, setUsername] = useState(() => tokenStorage.getUsername())
 
   const login = useCallback(async (username, password) => {
     const { access, refresh } = await loginRequest(username, password)
-    tokenStorage.set(access, refresh)
+    tokenStorage.set(access, refresh, username)
+    setUsername(username)
     setIsAuthenticated(true)
   }, [])
 
@@ -19,11 +21,15 @@ export function AuthProvider({ children }) {
       if (refresh) await logoutRequest(refresh)
     } finally {
       tokenStorage.clear()
+      setUsername(null)
       setIsAuthenticated(false)
     }
   }, [])
 
-  const value = useMemo(() => ({ isAuthenticated, login, logout }), [isAuthenticated, login, logout])
+  const value = useMemo(
+    () => ({ isAuthenticated, username, login, logout }),
+    [isAuthenticated, username, login, logout],
+  )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

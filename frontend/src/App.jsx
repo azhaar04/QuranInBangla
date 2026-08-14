@@ -3,6 +3,7 @@ import { AuthProvider } from './context/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
+import ComingSoonPage from './pages/ComingSoonPage'
 
 function App() {
   return (
@@ -15,6 +16,38 @@ function App() {
             element={
               <ProtectedRoute>
                 <DashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/surahs"
+            element={
+              <ProtectedRoute>
+                <ComingSoonPage title="সূরার তালিকা" />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/rukus"
+            element={
+              <ProtectedRoute>
+                <ComingSoonPage title="রুকুর তালিকা" />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dictionary"
+            element={
+              <ProtectedRoute>
+                <ComingSoonPage title="শব্দ অভিধান" />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/search"
+            element={
+              <ProtectedRoute>
+                <ComingSoonPage title="অনুসন্ধান" />
               </ProtectedRoute>
             }
           />

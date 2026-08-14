@@ -2,17 +2,21 @@ import axios from 'axios'
 
 const ACCESS_TOKEN_KEY = 'qib_access_token'
 const REFRESH_TOKEN_KEY = 'qib_refresh_token'
+const USERNAME_KEY = 'qib_username'
 
 export const tokenStorage = {
   getAccess: () => localStorage.getItem(ACCESS_TOKEN_KEY),
   getRefresh: () => localStorage.getItem(REFRESH_TOKEN_KEY),
-  set: (access, refresh) => {
+  getUsername: () => localStorage.getItem(USERNAME_KEY),
+  set: (access, refresh, username) => {
     localStorage.setItem(ACCESS_TOKEN_KEY, access)
     if (refresh) localStorage.setItem(REFRESH_TOKEN_KEY, refresh)
+    if (username) localStorage.setItem(USERNAME_KEY, username)
   },
   clear: () => {
     localStorage.removeItem(ACCESS_TOKEN_KEY)
     localStorage.removeItem(REFRESH_TOKEN_KEY)
+    localStorage.removeItem(USERNAME_KEY)
   },
 }
 

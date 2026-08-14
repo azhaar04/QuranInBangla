@@ -31,6 +31,15 @@
   --color-border: #e0ddd5;
   --color-link: #0f6e56;
 
+  --color-page: #f4f2ee;
+  --color-header-line: #ece8df;
+  --color-sidebar-line: rgba(255, 255, 255, 0.08);
+  --color-sidebar-label: rgba(255, 255, 255, 0.32);
+  --color-sidebar-inactive: rgba(255, 255, 255, 0.55);
+  --color-sidebar-active: rgba(255, 255, 255, 0.1);
+  --color-logo-badge: rgba(201, 162, 39, 0.14);
+  --color-logo-badge-border: rgba(201, 162, 39, 0.4);
+
   /* Latin glyphs render in Inter; the browser falls through to Noto Sans
      Bengali (with Kalpurush as an extra fallback) for Bengali glyphs —
      one stack covers both scripts without per-element font classing. */
