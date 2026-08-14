@@ -1,1 +1,43 @@
 @import "tailwindcss";
+
+@font-face {
+  font-family: "Kalpurush";
+  src: url("/fonts/kalpurush.ttf") format("truetype");
+  font-weight: 400 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "QPC Hafs";
+  src:
+    url("/fonts/UthmanicHafs_V22.woff2") format("woff2"),
+    url("/fonts/UthmanicHafs_V22.ttf") format("truetype");
+  font-weight: 400;
+  font-display: swap;
+}
+
+@theme {
+  --color-brand-dark: #063d2c;
+  --color-gold: #c9a227;
+  --color-cream: #fafaf8;
+  --color-heading: #221f1a;
+  --color-muted: #8a867c;
+  --color-input-bg: #d4d0c8;
+  --color-label: #5a5750;
+  --color-input-text: #757575;
+  --color-alert-bg: #eff9f5;
+  --color-alert-border: #b8e0d2;
+  --color-alert-text: #0b5a45;
+  --color-border: #e0ddd5;
+  --color-link: #0f6e56;
+
+  /* Latin glyphs render in Inter; the browser falls through to Noto Sans
+     Bengali (with Kalpurush as an extra fallback) for Bengali glyphs —
+     one stack covers both scripts without per-element font classing. */
+  --font-sans: "Inter", "Noto Sans Bengali", "Kalpurush", system-ui, sans-serif;
+  --font-arabic: "QPC Hafs", "Traditional Arabic", serif;
+}
+
+body {
+  font-family: var(--font-sans);
+}

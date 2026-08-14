@@ -27,10 +27,46 @@ correct Bangla translation.
 | Backend | Django + Django REST Framework |
 | Database | PostgreSQL |
 | Frontend (dashboard) | React + Vite |
+| CSS Framework (dashboard) | Tailwind CSS v4 (`@tailwindcss/vite` plugin) |
 | Frontend (public site, future) | Next.js |
-| Authentication | Django default auth (single admin user) |
+| Authentication | JWT (`djangorestframework-simplejwt`), single admin user |
 | PDF Generation | WeasyPrint |
 | Arabic source data | Quran Foundation API (one-time fetch, cached in DB) |
+
+---
+
+## Target Device
+
+The client uses the dashboard on a **laptop only** — not a phone, not an
+ultra-wide desktop monitor. Design and test primarily for laptop viewports
+(~1366px–1920px wide, the common 13"–15" laptop range). Layouts must not
+break/overflow at these sizes. Mobile-first responsiveness is explicitly
+NOT a v1 priority — don't spend effort on phone breakpoints for the
+dashboard. (The future public site, being public-facing, will need real
+responsive design — this constraint applies to the admin dashboard only.)
+
+---
+
+## Authentication
+
+JWT via `djangorestframework-simplejwt` — NOT DRF `TokenAuthentication`.
+Client sends the access token as a `Bearer` token in the `Authorization`
+header.
+
+```python
+# settings — djangorestframework-simplejwt
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'AUTH_HEADER_TYPES': ('Bearer',),
+}
+```
+
+`BLACKLIST_AFTER_ROTATION=True` requires the
+`rest_framework_simplejwt.token_blacklist` app enabled with its migrations
+run. Single admin user only — see "What NOT to do" below.
 
 ---
 
@@ -359,6 +395,69 @@ Both are read-only and should report zero issues.
   - `/resources/rukus` — list of 558 rukus
   - `/verses/by_chapter/{chapter_number}` — ayahs with word-by-word data
   - Use `fields=text_uthmani,words` to get arabic text + words in one call
+- Recitation/riwayah: **Hafs 'an Asim** (NOT Warsh) — the globally standard
+  riwayah (Middle East, South Asia including Bangladesh, Southeast Asia,
+  and virtually all major Quran platforms including Quran.com/Quran
+  Foundation). Warsh (used mainly in North/West Africa) has a genuinely
+  different Rasm/text and would be explicitly labeled as such — this API
+  isn't, and `text_uthmani` follows standard Hafs Uthmani orthography.
+
+---
+
+## Fonts
+
+### Arabic / Quranic text — QPC Hafs
+- **QPC Hafs** (King Fahd Glorious Quran Printing Complex's official
+  Unicode Uthmani Hafs font) — sourced from QUL:
+  https://qul.tarteel.ai/resources/font/245
+- Unicode-based — matches `ayah.arabic_text` / `word.arabic_text` (from
+  Quran Foundation API's `text_uthmani`) directly. No glyph-substitution
+  or special codepoint mapping needed.
+- Not on Google Fonts — self-host the TTF/WOFF2 files. QUL's download
+  button is JS-driven (no static file URL), so it can't be fetched
+  headlessly/programmatically — must be downloaded manually via the
+  browser.
+- Self-hosted at `frontend/public/fonts/UthmanicHafs_V22.{woff2,ttf}`,
+  wired up as the `QPC Hafs` font-family in `frontend/src/index.css`
+  (Tailwind theme token `--font-arabic`).
+
+### English UI text — Inter
+- **Inter** (Google Fonts) — primary font for Latin/English text (brand
+  name, labels that mix in English, numerals).
+
+### Bangla UI text — Noto Sans Bengali
+- **Noto Sans Bengali** (Google Fonts) — primary font for all Bangla UI
+  text (dashboard chrome, buttons, labels) and Bangla translation body
+  text. Loads from the Google Fonts CDN — no self-hosting needed.
+- Combined stack: `--font-sans: "Inter", "Noto Sans Bengali", "Kalpurush",
+  system-ui, sans-serif` in `frontend/src/index.css` — the browser renders
+  Latin glyphs in Inter and falls through to Noto Sans Bengali for Bengali
+  glyphs automatically, so UI text doesn't need per-element font classing.
+- Kalpurush is kept self-hosted at `frontend/public/fonts/kalpurush.ttf`
+  as a trailing fallback (in case Noto Sans Bengali is missing a glyph)
+  but is no longer the primary Bangla font — an earlier decision (Kalpurush
+  primary) was reversed since Noto Sans Bengali reads cleaner in the
+  actual UI at dashboard chrome sizes.
+- Rejected: Hind Siliguri — on Google Fonts and tagged "Bengali," but
+  it's designed for the Indian/Hindi-adjacent market, not a
+  Bangladeshi-origin typeface.
+- **License note (Kalpurush, fallback only):** CC BY-NC-SA 3.0
+  (NonCommercial). Not a concern now since it's not the primary font, but
+  worth dropping entirely if it's ever fully unused.
+
+### IndoPak / Nastaleeq script — out of v1 scope
+- v1 renders **Uthmani script only** (QPC Hafs above). No IndoPak/
+  Nastaleeq font or rendering in v1.
+- Reason: IndoPak-style rendering is NOT just a different font over the
+  same text — it requires a genuinely different underlying Unicode text
+  dataset (confirmed via QUL's own documentation, which repeats "Standard
+  Quran fonts require a separate Quran script" on every IndoPak font
+  page). Supporting it later means importing a second parallel text
+  dataset (e.g. QUL's "Indopak (Word by Word / Ayah by Ayah)" dataset,
+  tag `Hafs`) alongside the existing Uthmani data — not just adding a
+  font file.
+- Revisit only when/if this becomes an explicit requirement (e.g. public
+  site phase).
 
 ---
 
@@ -385,3 +484,10 @@ QURAN_API_CLIENT_SECRET=
 - Do NOT create `activity_log` rows on autosave — only on explicit Save
 - Do NOT strip Quranic annotation marks from `ayah.arabic_text` or
   `word_occurrence.raw_text` — only `word.arabic_text` gets cleaned
+- Do NOT treat "download an IndoPak font" as sufficient for IndoPak
+  script support — it needs a separate IndoPak-encoded text dataset (see
+  "Fonts" above)
+- Do NOT use DRF `TokenAuthentication` — auth is JWT via
+  `djangorestframework-simplejwt` (see "Authentication" above)
+- Do NOT use Kalpurush as the primary Bangla font — Noto Sans Bengali is
+  primary, Kalpurush is a trailing fallback only (see "Fonts" above)
