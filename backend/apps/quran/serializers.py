@@ -4,9 +4,28 @@ from apps.quran.models import Ayah, Ruku, Surah, Word, WordMeaning, WordNote, Wo
 
 
 class SurahSerializer(serializers.ModelSerializer):
+    final_ayah_count = serializers.IntegerField(read_only=True)
+    progress_percent = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
+
     class Meta:
         model = Surah
-        fields = ['id', 'number', 'name_arabic', 'name_bangla', 'name_english', 'total_ayah']
+        fields = [
+            'id', 'number', 'name_arabic', 'name_bangla', 'name_english', 'total_ayah',
+            'revelation_place', 'final_ayah_count', 'progress_percent', 'status',
+        ]
+
+    def get_progress_percent(self, obj):
+        if not obj.total_ayah:
+            return 0
+        return round(obj.final_ayah_count / obj.total_ayah * 100)
+
+    def get_status(self, obj):
+        if obj.final_ayah_count == 0:
+            return 'not_started'
+        if obj.final_ayah_count == obj.total_ayah:
+            return 'complete'
+        return 'in_progress'
 
 
 class RukuSerializer(serializers.ModelSerializer):

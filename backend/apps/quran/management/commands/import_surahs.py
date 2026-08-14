@@ -12,16 +12,21 @@ class Command(BaseCommand):
 
         created = 0
         for chapter in chapters:
-            _, was_created = Surah.objects.get_or_create(
+            surah, was_created = Surah.objects.get_or_create(
                 number=chapter['id'],
                 defaults={
                     'name_arabic': chapter['name_arabic'],
                     'name_bangla': chapter['translated_name']['name'],
                     'name_english': chapter['name_simple'],
                     'total_ayah': chapter['verses_count'],
+                    'revelation_place': chapter['revelation_place'],
                 },
             )
             created += was_created
+
+            if not was_created and surah.revelation_place != chapter['revelation_place']:
+                surah.revelation_place = chapter['revelation_place']
+                surah.save(update_fields=['revelation_place'])
 
         self.stdout.write(self.style.SUCCESS(
             f'Surahs: {len(chapters)} total, {created} created, '

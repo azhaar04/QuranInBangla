@@ -1,3 +1,4 @@
+from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
@@ -15,9 +16,15 @@ from apps.quran.serializers import (
 from apps.quran.services.text_normalizer import strip_diacritics
 
 
+def _surah_queryset():
+    return Surah.objects.annotate(
+        final_ayah_count=Count('ayahs', filter=Q(ayahs__status=Ayah.Status.FINAL))
+    ).order_by('number')
+
+
 class SurahListView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
-    queryset = Surah.objects.all()
+    queryset = _surah_queryset()
     serializer_class = SurahSerializer
 
 
@@ -26,7 +33,7 @@ class SurahDetailView(generics.RetrieveAPIView):
     serializer_class = SurahSerializer
     lookup_field = 'number'
     lookup_url_kwarg = 'surah_number'
-    queryset = Surah.objects.all()
+    queryset = _surah_queryset()
 
 
 class RukuListView(generics.ListAPIView):

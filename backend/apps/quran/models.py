@@ -5,11 +5,19 @@ from apps.quran.services.text_normalizer import strip_diacritics
 
 
 class Surah(models.Model):
+    class RevelationPlace(models.TextChoices):
+        MAKKAH = 'makkah', 'Makkah'
+        MADINAH = 'madinah', 'Madinah'
+
     number = models.PositiveSmallIntegerField(unique=True)
     name_arabic = models.TextField()
-    name_bangla = models.TextField()
+    name_bangla = models.TextField(blank=True)
+    meaning_bangla = models.TextField()
     name_english = models.TextField()
     total_ayah = models.PositiveIntegerField()
+    revelation_place = models.CharField(
+        max_length=10, choices=RevelationPlace.choices, blank=True
+    )
 
     class Meta:
         db_table = 'surah'

@@ -129,9 +129,11 @@ QuranInBangla/
 | id | integer PK | |
 | number | integer unique | 1–114 |
 | name_arabic | text | |
-| name_bangla | text | |
-| name_english | text | |
+| name_bangla | text | Bangla **transliteration** of the surah name (e.g. "আল ফাতিহা"). Not from the Quran Foundation API — it only returns a meaning-translation for `bn` — sourced from Bangla Wikipedia via `import_surah_bangla_names` management command (safe to re-run) |
+| meaning_bangla | text | Bangla **meaning** of the surah name (e.g. "সূচনা" = "The Opening"). This is what the Quran Foundation API's `translated_name.name` returns for `bn` — was originally (incorrectly) stored as `name_bangla` until this rename |
+| name_english | text | Transliteration, e.g. "Al-Fatihah" (not a meaning-translation) |
 | total_ayah | integer | |
+| revelation_place | varchar(10) | `makkah` / `madinah` — from Quran Foundation API's `revelation_place` field, populated by `import_surahs` (safe to re-run, backfills existing rows too) |
 
 ### `ruku`
 | Column | Type | Notes |
