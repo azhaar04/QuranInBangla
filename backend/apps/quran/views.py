@@ -1,6 +1,7 @@
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404
 from rest_framework import generics
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -10,8 +11,8 @@ from apps.quran.serializers import (
     RukuSerializer,
     SurahSerializer,
     WordDetailSerializer,
+    WordListSerializer,
     WordMeaningSerializer,
-    WordSerializer,
 )
 from apps.quran.services.text_normalizer import strip_diacritics
 
@@ -100,17 +101,36 @@ class AyahDetailView(generics.RetrieveUpdateAPIView):
         )
 
 
+class WordPagination(PageNumberPagination):
+    page_size = 50
+    page_size_query_param = 'page_size'
+    max_page_size = 200
+
+
+def _word_queryset():
+    return Word.objects.select_related('note').prefetch_related('meanings').annotate(
+        occurrence_count=Count('occurrences', distinct=True)
+    )
+
+
 class WordListView(generics.ListAPIView):
     permission_classes = [IsAuthenticated]
-    serializer_class = WordSerializer
+    serializer_class = WordListSerializer
+    pagination_class = WordPagination
+    ALLOWED_ORDERINGS = {'arabic_text', '-arabic_text', 'occurrence_count', '-occurrence_count'}
+
+    def _search_filtered_queryset(self):
+        queryset = _word_queryset()
+        search = self.request.query_params.get('search')
+        if search:
+            queryset = queryset.filter(
+                Q(normalized_text__icontains=strip_diacritics(search)) | Q(note__root__icontains=search)
+            ).distinct()
+        return queryset
 
     def get_queryset(self):
-        queryset = Word.objects.prefetch_related('meanings', 'note')
+        queryset = self._search_filtered_queryset()
         params = self.request.query_params
-
-        search = params.get('search')
-        if search:
-            queryset = queryset.filter(normalized_text__icontains=strip_diacritics(search))
 
         is_meaning_final = params.get('is_meaning_final')
         if is_meaning_final is not None:
@@ -123,7 +143,21 @@ class WordListView(generics.ListAPIView):
             else:
                 queryset = queryset.filter(meanings__isnull=True)
 
-        return queryset.order_by('arabic_text')
+        ordering = params.get('ordering', 'arabic_text')
+        if ordering not in self.ALLOWED_ORDERINGS:
+            ordering = 'arabic_text'
+
+        return queryset.order_by(ordering)
+
+    def list(self, request, *args, **kwargs):
+        response = super().list(request, *args, **kwargs)
+        base = self._search_filtered_queryset()
+        response.data['counts'] = {
+            'all': base.count(),
+            'complete': base.filter(is_meaning_final=True).count(),
+            'incomplete': base.filter(is_meaning_final=False).count(),
+        }
+        return response
 
 
 class WordDetailView(generics.RetrieveUpdateAPIView):

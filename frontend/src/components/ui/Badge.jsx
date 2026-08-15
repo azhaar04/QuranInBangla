@@ -7,7 +7,7 @@ const VARIANTS = {
 export default function Badge({ variant = 'neutral', children, className = '' }) {
   return (
     <span
-      className={`inline-flex h-8 w-[104px] items-center justify-center rounded-full text-[13.333px] font-semibold whitespace-nowrap ${VARIANTS[variant]} ${className}`}
+      className={`inline-flex h-8 min-w-[104px] items-center justify-center rounded-full px-4 text-[13.333px] font-semibold whitespace-nowrap ${VARIANTS[variant]} ${className}`}
     >
       {children}
     </span>

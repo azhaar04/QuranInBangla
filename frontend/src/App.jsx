@@ -4,6 +4,7 @@ import ProtectedRoute from './components/ProtectedRoute'
 import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import SurahListPage from './pages/SurahListPage'
+import WordDictionaryPage from './pages/WordDictionaryPage'
 import ComingSoonPage from './pages/ComingSoonPage'
 
 function App() {
@@ -40,7 +41,7 @@ function App() {
             path="/dictionary"
             element={
               <ProtectedRoute>
-                <ComingSoonPage title="শব্দ অভিধান" />
+                <WordDictionaryPage />
               </ProtectedRoute>
             }
           />
