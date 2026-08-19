@@ -56,6 +56,7 @@ NORMAL_SINGLES = {
 # Standard tashkeel/harakat (fatha, damma, kasra, sukun, shadda, tanwin...)
 # — this is the same U+064B–U+065F range your normalized_text already strips.
 NORMAL_SINGLES |= set(range(0x064B, 0x0660))
+NORMAL_SINGLES.add(0x06E1)  # QPC sukun variant — harakat, kept by design (see text_normalizer.py)
 
 # Friendly labels for marks we've already identified. Anything not in this
 # dict will still be reported, just without the extra context.

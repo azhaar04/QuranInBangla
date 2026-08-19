@@ -8,11 +8,10 @@
 }
 
 @font-face {
-  font-family: "QPC Hafs";
+  font-family: "QPCHafs";
   src:
-    url("/fonts/UthmanicHafs_V22.woff2") format("woff2"),
-    url("/fonts/UthmanicHafs_V22.ttf") format("truetype");
-  font-weight: 400;
+    url("https://verses.quran.foundation/fonts/quran/hafs/uthmanic_hafs/UthmanicHafs1Ver18.woff2") format("woff2"),
+    url("https://verses.quran.foundation/fonts/quran/hafs/uthmanic_hafs/UthmanicHafs1Ver18.ttf") format("truetype");
   font-display: swap;
 }
 
@@ -58,7 +57,7 @@
      Bengali (with Kalpurush as an extra fallback) for Bengali glyphs —
      one stack covers both scripts without per-element font classing. */
   --font-sans: "Inter", "Noto Sans Bengali", "Kalpurush", system-ui, sans-serif;
-  --font-arabic: "QPC Hafs", "Traditional Arabic", serif;
+  --font-arabic: "QPCHafs", serif;
 }
 
 body {

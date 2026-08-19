@@ -482,10 +482,11 @@ component-e hardcoded hex kothao lekha thakbe na.
 
 **Phase 0 — Foundation (1-2 din-er kaj, kintu sobcheye important)**
 1. Vite + React scaffold, Tailwind v4 install, `@theme` token setup (upor-e deya)
-2. Font setup: **QPC Hafs** self-host (Arabic, all pages); **Hind Siliguri**
-   + **Noto Sans Bengali** load kora jabe Google Fonts CDN theke (duitai
-   Google Fonts-e ache, self-host lagbe na) — Login-e Noto Sans Bengali,
-   baki page-e Hind Siliguri
+2. Font setup: **QPC Hafs** load live from Quran Foundation's own CDN
+   (Arabic, all pages) — self-host **korbe na**, QF corrections push kore
+   font file-e time-to-time; **Hind Siliguri** + **Noto Sans Bengali** load
+   kora jabe Google Fonts CDN theke (duitai Google Fonts-e ache, self-host
+   lagbe na) — Login-e Noto Sans Bengali, baki page-e Hind Siliguri
 3. Base UI components: `Button`, `Badge`, `Card`, `Input`, `ProgressBar`
 4. `react-router-dom` + `axios` setup, `.env` (`VITE_API_BASE_URL`)
 

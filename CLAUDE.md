@@ -154,7 +154,7 @@ QuranInBangla/
 | ruku_id | FK → ruku | nullable |
 | ayah_number | integer | Within surah |
 | verse_key | varchar(10) unique | e.g. "2:255" |
-| arabic_text | text | Uthmani script, from API, never modified — includes waqf signs etc. as-is |
+| arabic_text | text | QPC Hafs script (`text_qpc_hafs` field), from API, never modified — includes waqf signs etc. as-is |
 | translation_text | text | Client's manual Bangla translation |
 | notes | text | Per-ayah free note |
 | status | varchar(10) | 'draft' or 'final' |
@@ -165,7 +165,7 @@ QuranInBangla/
 | Column | Type | Notes |
 |---|---|---|
 | id | integer PK | |
-| arabic_text | text unique | **Canonical form**, NOT raw API text. Quranic annotation marks (waqf signs, rub-el-hizb, sajdah marker, silent-letter marks — U+06D6–U+06ED) are stripped, and the result is NFC-normalized. Exact match on this canonical form (e.g. `eat` ≠ `eats` ≠ `eating`, different harakat/case endings ARE different words) — see "Word `arabic_text` canonicalization" below |
+| arabic_text | text unique | **Canonical form**, NOT raw API text. Quranic annotation marks (waqf signs, rub-el-hizb, sajdah marker, silent-letter marks — U+06D6–U+06ED, **except U+06E1** which is kept — see below) are stripped, and the result is NFC-normalized. Exact match on this canonical form (e.g. `eat` ≠ `eats` ≠ `eating`, different harakat/case endings ARE different words) — see "Word `arabic_text` canonicalization" below |
 | normalized_text | text | Diacritics-stripped (harakat + tashkeel + annotations), auto-generated for search |
 | is_meaning_final | boolean | default false — for progress tracking only, not a lock |
 | created_at | timestamp | |
@@ -251,6 +251,14 @@ before it becomes `word.arabic_text`:
    break meaning defaulting, `word_note` sharing, and progress tracking.
    Standard harakat/tashkeel (U+064B–U+065F) are NOT touched — they stay,
    since different harakat are meaningfully different words here.
+   **Exception: U+06E1 (`ARABIC SMALL HIGH DOTLESS HEAD OF KHAH`) is kept,
+   not stripped**, even though it numerically falls inside the U+06D6–U+06ED
+   annotation range — it's the QPC-typesetting glyph variant of sukun used
+   in `text_qpc_hafs` (see "Fonts" and "Quran Foundation API" below), so
+   it's a harakat (marks "no vowel"), not a positional/contextual mark, and
+   must remain part of word identity (client-confirmed decision). It's still
+   stripped in `strip_diacritics()` for `word.normalized_text`, since search
+   stays fully diacritics-insensitive regardless.
 2. **NFC-normalize** (`unicodedata.normalize('NFC', ...)`) — the Quran
    Foundation API doesn't always send the same word in the same Unicode
    normalization form (precomposed vs. decomposed, e.g. `آ` as one
@@ -292,13 +300,15 @@ different purposes — do not conflate them:
   tatweel, AND Quranic annotation marks (U+06D6–U+06ED). Used ONLY for
   `word.normalized_text`, which powers diacritics-insensitive search.
 - `strip_quranic_annotations()` — narrower strip: ONLY Quranic annotation
-  marks (U+06D6–U+06ED) and stray control characters (e.g. U+200F).
-  Harakat/tashkeel are kept. Used to compute the canonical `word.arabic_text`
-  (see above) — harakat differences must be preserved here since they're
-  meaningfully different words, unlike for search.
+  marks (U+06D6–U+06ED, **except U+06E1**, see above) and stray control
+  characters (e.g. U+200F). Harakat/tashkeel are kept. Used to compute the
+  canonical `word.arabic_text` (see above) — harakat differences must be
+  preserved here since they're meaningfully different words, unlike for
+  search.
 
 ### Ayah arabic_text
-Stored as-is from Quran Foundation API (Uthmani script). Never reconstructed
+Stored as-is from Quran Foundation API's `text_qpc_hafs` field (QPC Hafs
+script — see "Quran Foundation API" and "Fonts" below). Never reconstructed
 from word occurrences. This is the source of truth for display. Unlike
 `word.arabic_text`, this is NEVER cleaned/stripped/normalized.
 
@@ -353,9 +363,9 @@ All import logic lives in:
 Use `get_or_create()` to make commands safely re-runnable.
 
 `import_ayahs_and_words` computes `word_occurrence.raw_text` (NFC-normalized,
-marks intact) and `word.arabic_text` (NFC-normalized, marks stripped) from
-the same API segment text — see "Word `arabic_text` canonicalization" above
-before touching this command.
+marks intact) and `word.arabic_text` (NFC-normalized, marks stripped except
+U+06E1) from the same API segment text (`text_qpc_hafs` field) — see "Word
+`arabic_text` canonicalization" above before touching this command.
 
 After any fresh/re-import, run:
 ```bash
@@ -396,32 +406,69 @@ Both are read-only and should report zero issues.
   - `/chapters` — list of 114 surahs
   - `/resources/rukus` — list of 558 rukus
   - `/verses/by_chapter/{chapter_number}` — ayahs with word-by-word data
-  - Use `fields=text_uthmani,words` to get arabic text + words in one call
+  - Use `fields=text_qpc_hafs,words` and `word_fields=text_qpc_hafs` to get
+    arabic text + words in one call
+- **Text source field: `text_qpc_hafs`, NOT `text_uthmani`** — applies to
+  both ayah-level (`Ayah.arabic_text`) and word-level
+  (`WordOccurrence.raw_text` / `Word.arabic_text`) text. Switched from
+  `text_uthmani` after discovering the QPC Hafs font is only glyph-correct
+  when paired with QPC Hafs script text, not Tanzil Uthmani script — see
+  "Fonts" below. Same API, same license, just a different field; confirmed
+  character-for-character identical to QUL's own `text_qpc_hafs` dataset for
+  the ayahs checked, so QUL is not used as a separate data source.
 - Recitation/riwayah: **Hafs 'an Asim** (NOT Warsh) — the globally standard
   riwayah (Middle East, South Asia including Bangladesh, Southeast Asia,
   and virtually all major Quran platforms including Quran.com/Quran
   Foundation). Warsh (used mainly in North/West Africa) has a genuinely
   different Rasm/text and would be explicitly labeled as such — this API
-  isn't, and `text_uthmani` follows standard Hafs Uthmani orthography.
+  isn't, and `text_qpc_hafs` follows standard Hafs orthography (QPC's own
+  typesetting/glyph conventions, e.g. U+06E1 for sukun — see "Word
+  `arabic_text` canonicalization" above).
 
 ---
 
 ## Fonts
 
-### Arabic / Quranic text — QPC Hafs
-- **QPC Hafs** (King Fahd Glorious Quran Printing Complex's official
-  Unicode Uthmani Hafs font) — sourced from QUL:
-  https://qul.tarteel.ai/resources/font/245
+### Arabic / Quranic text — QPC Hafs (final)
+- **QPC Hafs** (`UthmanicHafs1Ver18`) — loaded **live from Quran
+  Foundation's own CDN**, NOT self-hosted:
+  `https://verses.quran.foundation/fonts/quran/hafs/uthmanic_hafs/UthmanicHafs1Ver18.{woff2,ttf}`,
+  wired up as the `QPCHafs` font-family in `frontend/src/index.css`
+  (Tailwind theme token `--font-arabic`). Do NOT self-host this file —
+  Quran Foundation pushes corrections to it over time.
+- **Root cause of the earlier "broken glyph" bug, now fixed:** the
+  U+06DF/U+06E3/U+06EB black-circle rendering bug (see the rejected-attempt
+  history just below) was never a font defect — it was a **field mismatch**.
+  QPC Hafs font is only glyph-correct when paired with the QPC Hafs script
+  text (`text_qpc_hafs` API field), not Tanzil Uthmani script
+  (`text_uthmani`). We were pairing the right font with the wrong text
+  field. Fix: switched the Arabic text source to `text_qpc_hafs` for both
+  `Ayah.arabic_text` and word-level text — see "Quran Foundation API" above
+  and "Word `arabic_text` canonicalization" above (including the U+06E1
+  sukun-variant exception, which only applies under `text_qpc_hafs`).
+- **Rejected-attempt history (kept for context, decision superseded above):**
+  - **QPC Hafs V22** (from QUL: https://qul.tarteel.ai/resources/font/245)
+    was the original v1 choice for its Madinah-Mushaf styling, but its
+    glyph for `U+06DF ARABIC SMALL HIGH ROUNDED ZERO` (marks a
+    silent/unpronounced letter, e.g. the extra و in "أولئك") appeared badly
+    broken when paired with `text_uthmani`: an oversized solid black circle
+    instead of a small mark (glyph outline ~1255×1255 font units vs.
+    ~450×300 for a normal harakat mark, confirmed via `fontTools` glyph
+    inspection). An older QPC Hafs V18 from the same source showed the same
+    defect under `text_uthmani`. This is what was fixed by switching to
+    `text_qpc_hafs` above — not a font swap.
+  - **Scheherazade New** (SIL International, SIL Open Font License) was
+    adopted next as a full font swap to work around the then-suspected font
+    bug — self-hosted at
+    `frontend/public/fonts/ScheherazadeNew-Regular.{woff2,ttf}`
+    (downloaded from Google Fonts' public repo, `google/fonts` GitHub,
+    `ofl/scheherazadenew/`). **Reversed** once the real root cause (field
+    mismatch, not font defect) was found — QPC Hafs restores the intended
+    Madinah-Mushaf styling. The self-hosted Scheherazade New files have
+    been removed from `frontend/public/fonts/`.
 - Unicode-based — matches `ayah.arabic_text` / `word.arabic_text` (from
-  Quran Foundation API's `text_uthmani`) directly. No glyph-substitution
+  Quran Foundation API's `text_qpc_hafs`) directly. No glyph-substitution
   or special codepoint mapping needed.
-- Not on Google Fonts — self-host the TTF/WOFF2 files. QUL's download
-  button is JS-driven (no static file URL), so it can't be fetched
-  headlessly/programmatically — must be downloaded manually via the
-  browser.
-- Self-hosted at `frontend/public/fonts/UthmanicHafs_V22.{woff2,ttf}`,
-  wired up as the `QPC Hafs` font-family in `frontend/src/index.css`
-  (Tailwind theme token `--font-arabic`).
 
 ### English UI text — Inter
 - **Inter** (Google Fonts) — primary font for Latin/English text (brand
@@ -448,8 +495,8 @@ Both are read-only and should report zero issues.
   worth dropping entirely if it's ever fully unused.
 
 ### IndoPak / Nastaleeq script — out of v1 scope
-- v1 renders **Uthmani script only** (QPC Hafs above). No IndoPak/
-  Nastaleeq font or rendering in v1.
+- v1 renders **QPC Hafs script only** (see above). No IndoPak/Nastaleeq
+  font or rendering in v1.
 - Reason: IndoPak-style rendering is NOT just a different font over the
   same text — it requires a genuinely different underlying Unicode text
   dataset (confirmed via QUL's own documentation, which repeats "Standard
@@ -493,3 +540,11 @@ QURAN_API_CLIENT_SECRET=
   `djangorestframework-simplejwt` (see "Authentication" above)
 - Do NOT use Kalpurush as the primary Bangla font — Noto Sans Bengali is
   primary, Kalpurush is a trailing fallback only (see "Fonts" above)
+- Do NOT use the `text_uthmani` API field for `Ayah.arabic_text` or word
+  text — use `text_qpc_hafs` (see "Quran Foundation API" above); QPC Hafs
+  font only renders correctly against QPC Hafs script text
+- Do NOT strip U+06E1 in `strip_quranic_annotations()` — it's the
+  QPC-typesetting sukun variant, a harakat, not a positional mark (see
+  "Word `arabic_text` canonicalization" above)
+- Do NOT self-host the QPC Hafs font file — load it live from Quran
+  Foundation's CDN (see "Fonts" above)

@@ -53,8 +53,8 @@ class QuranAPIClient:
 
     def get_verses_by_chapter(self, chapter_number, with_words=False):
         """Return every verse of a chapter (per_page=300 covers even Al-Baqarah)."""
-        params = {'per_page': 300, 'fields': 'text_uthmani'}
+        params = {'per_page': 300, 'fields': 'text_qpc_hafs'}
         if with_words:
             params['words'] = 'true'
-            params['word_fields'] = 'text_uthmani'
+            params['word_fields'] = 'text_qpc_hafs'
         return self._get(f'/verses/by_chapter/{chapter_number}', params=params)['verses']

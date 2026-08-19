@@ -35,7 +35,7 @@ class Command(BaseCommand):
                         'surah': surah,
                         'ruku': rukus_by_number.get(verse['ruku_number']),
                         'ayah_number': verse['verse_number'],
-                        'arabic_text': verse['text_uthmani'],
+                        'arabic_text': verse['text_qpc_hafs'],
                     },
                 )
                 ayahs_created += ayah_created
@@ -52,7 +52,7 @@ class Command(BaseCommand):
                     #    for word identity/meaning/note linking.
                     # The raw (NFC-normalized but un-stripped) text is kept
                     # on the occurrence so nothing is lost for display.
-                    raw_text = unicodedata.normalize('NFC', word_data['text_uthmani'])
+                    raw_text = unicodedata.normalize('NFC', word_data['text_qpc_hafs'])
                     canonical_text = strip_quranic_annotations(raw_text)
 
                     word, word_created = Word.objects.get_or_create(
