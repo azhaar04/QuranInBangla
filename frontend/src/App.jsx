@@ -5,6 +5,7 @@ import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import SurahListPage from './pages/SurahListPage'
 import SurahAyahPage from './pages/SurahAyahPage'
+import RukuListPage from './pages/RukuListPage'
 import WordDictionaryPage from './pages/WordDictionaryPage'
 import ComingSoonPage from './pages/ComingSoonPage'
 
@@ -42,7 +43,7 @@ function App() {
             path="/rukus"
             element={
               <ProtectedRoute>
-                <ComingSoonPage title="রুকুর তালিকা" />
+                <RukuListPage />
               </ProtectedRoute>
             }
           />

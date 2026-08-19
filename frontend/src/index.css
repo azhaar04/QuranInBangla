@@ -39,7 +39,9 @@
   --color-logo-badge: rgba(201, 162, 39, 0.14);
   --color-logo-badge-border: rgba(201, 162, 39, 0.4);
 
+  --color-surface-subtle: #f7f5ef;
   --color-surface-subtle-2: #faf9f5;
+  --color-surface-subtle-3: #faf8f3;
   --color-border-subtle: #e0ddd6;
   --color-avatar-neutral-bg: #f1efe8;
   --color-progress-track-2: #f0ede6;
@@ -50,6 +52,10 @@
   --color-status-success-text: #085041;
   --color-status-warning-bg: #faeeda;
   --color-status-warning-text: #633806;
+
+  --color-ruku-pill-bg: #f3faf7;
+  --color-ruku-pill-border: #cfe9dd;
+  --color-ruku-pill-text: #0a7a5d;
 
   --shadow-login-card: 0px 40px 106.667px 0px rgba(0, 0, 0, 0.35);
 

@@ -37,25 +37,40 @@ class SurahDetailView(generics.RetrieveAPIView):
     queryset = _surah_queryset()
 
 
-class RukuListView(generics.ListAPIView):
+class RukuAyahNumberContextMixin:
+    """Resolves first_verse_id/last_verse_id (raw Ayah PKs, not FKs) to their
+    ayah_number in one bulk query, for RukuSerializer's first_ayah_number/
+    last_ayah_number fields."""
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        rukus = list(self.get_queryset())
+        verse_ids = {vid for r in rukus for vid in (r.first_verse_id, r.last_verse_id)}
+        context['ayah_numbers_by_id'] = dict(
+            Ayah.objects.filter(id__in=verse_ids).values_list('id', 'ayah_number')
+        )
+        return context
+
+
+class RukuListView(RukuAyahNumberContextMixin, generics.ListAPIView):
     permission_classes = [IsAuthenticated]
-    queryset = Ruku.objects.all()
+    queryset = Ruku.objects.select_related('surah').order_by('surah__number', 'surah_ruku_number')
     serializer_class = RukuSerializer
 
 
-class RukuDetailView(generics.RetrieveAPIView):
+class RukuDetailView(RukuAyahNumberContextMixin, generics.RetrieveAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = RukuSerializer
     lookup_field = 'ruku_number'
     queryset = Ruku.objects.all()
 
 
-class SurahRukuListView(generics.ListAPIView):
+class SurahRukuListView(RukuAyahNumberContextMixin, generics.ListAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = RukuSerializer
 
     def get_queryset(self):
-        return Ruku.objects.filter(surah__number=self.kwargs['surah_number'])
+        return Ruku.objects.filter(surah__number=self.kwargs['surah_number']).order_by('surah_ruku_number')
 
 
 def _ayah_queryset():

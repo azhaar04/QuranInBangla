@@ -29,12 +29,22 @@ class SurahSerializer(serializers.ModelSerializer):
 
 
 class RukuSerializer(serializers.ModelSerializer):
+    first_ayah_number = serializers.SerializerMethodField()
+    last_ayah_number = serializers.SerializerMethodField()
+
     class Meta:
         model = Ruku
         fields = [
             'id', 'ruku_number', 'surah', 'surah_ruku_number',
             'first_verse_id', 'last_verse_id', 'verses_count',
+            'first_ayah_number', 'last_ayah_number',
         ]
+
+    def get_first_ayah_number(self, obj):
+        return self.context.get('ayah_numbers_by_id', {}).get(obj.first_verse_id)
+
+    def get_last_ayah_number(self, obj):
+        return self.context.get('ayah_numbers_by_id', {}).get(obj.last_verse_id)
 
 
 class WordMeaningSerializer(serializers.ModelSerializer):
