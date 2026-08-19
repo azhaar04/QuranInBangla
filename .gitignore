@@ -19,6 +19,11 @@ Thumbs.db
 
 # Sample images
 sample_image/
+sample ui/
+
+# Planning/directive docs (local reference only, not tracked)
+docs/frontend_dev_plan.md
+docs/CLAUDE_CODE_DIRECTIVE_font_and_text_source_fix.md
 
 # Node
 frontend/node_modules/
