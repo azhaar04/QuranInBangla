@@ -1,4 +1,5 @@
-import { Fragment, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Grid2X2, List } from 'lucide-react'
 import AppShell from '../components/layout/AppShell'
 import SearchInput from '../components/ui/SearchInput'
@@ -48,9 +49,9 @@ const CELL_CLASS = 'flex min-w-0 items-center px-6 py-4'
 
 function SurahRow({ surah, isLast }) {
   const badge = STATUS_BADGE[surah.status]
-  const cellClass = `${CELL_CLASS} ${isLast ? '' : 'border-b-[1.333px] border-divider'}`
+  const cellClass = `${CELL_CLASS} ${isLast ? '' : 'border-b-[1.333px] border-divider'} transition-colors group-hover:bg-page`
   return (
-    <Fragment>
+    <Link to={`/surahs/${surah.number}`} className="group contents">
       <div className={cellClass}>
         <div className="flex items-center gap-4">
           <SurahNumberBadge number={surah.number} className="h-[37.333px] w-[37.333px] text-[14.667px]" />
@@ -80,7 +81,7 @@ function SurahRow({ surah, isLast }) {
       <div className={`${cellClass} justify-center`}>
         <Badge variant={badge.variant}>{badge.label}</Badge>
       </div>
-    </Fragment>
+    </Link>
   )
 }
 
@@ -105,7 +106,10 @@ function SurahTable({ surahs }) {
 function SurahCard({ surah }) {
   const badge = STATUS_BADGE[surah.status]
   return (
-    <div className="rounded-2xl border border-header-line bg-white p-5">
+    <Link
+      to={`/surahs/${surah.number}`}
+      className="block rounded-2xl border border-header-line bg-white p-5 transition-colors hover:bg-page"
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
           <SurahNumberBadge number={surah.number} className="h-8 w-8 text-[13.333px]" />
@@ -123,7 +127,7 @@ function SurahCard({ surah }) {
         <Badge variant={badge.variant}>{badge.label}</Badge>
         <span className="text-[15.333px] font-medium text-label">{toBanglaNumeral(surah.progress_percent)}%</span>
       </div>
-    </div>
+    </Link>
   )
 }
 

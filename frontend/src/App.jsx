@@ -4,6 +4,7 @@ import ProtectedRoute from './components/ProtectedRoute'
 import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import SurahListPage from './pages/SurahListPage'
+import SurahAyahPage from './pages/SurahAyahPage'
 import WordDictionaryPage from './pages/WordDictionaryPage'
 import ComingSoonPage from './pages/ComingSoonPage'
 
@@ -26,6 +27,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <SurahListPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/surahs/:surahNumber"
+            element={
+              <ProtectedRoute>
+                <SurahAyahPage />
               </ProtectedRoute>
             }
           />

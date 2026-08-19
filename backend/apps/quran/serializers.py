@@ -118,8 +118,8 @@ class WordOccurrenceSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = WordOccurrence
-        fields = ['id', 'position', 'word', 'word_arabic_text', 'meaning', 'meaning_text']
-        read_only_fields = ['word']
+        fields = ['id', 'position', 'word', 'word_arabic_text', 'raw_text', 'meaning', 'meaning_text']
+        read_only_fields = ['word', 'raw_text']
 
 
 class AyahSerializer(serializers.ModelSerializer):
