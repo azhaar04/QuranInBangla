@@ -99,8 +99,21 @@ class AyahDetailView(generics.RetrieveUpdateAPIView):
         had_content_before = bool(instance.translation_text or instance.notes)
         old_translation_text = instance.translation_text
         old_notes = instance.notes
+        old_status = instance.status
 
         ayah = serializer.save()
+
+        # Editing the translation of an already-Final ayah drops it back to
+        # Draft, unless this same request is the one explicitly setting the
+        # status (i.e. the client's own status choice wins).
+        if (
+            old_status == Ayah.Status.FINAL
+            and ayah.status == Ayah.Status.FINAL
+            and ayah.translation_text != old_translation_text
+            and 'status' not in serializer.validated_data
+        ):
+            ayah.status = Ayah.Status.DRAFT
+            ayah.save(update_fields=['status'])
 
         if ayah.translation_text == old_translation_text and ayah.notes == old_notes:
             return

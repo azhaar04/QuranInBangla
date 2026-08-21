@@ -5,6 +5,7 @@ import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import SurahListPage from './pages/SurahListPage'
 import SurahAyahPage from './pages/SurahAyahPage'
+import AyahWorkspacePage from './pages/AyahWorkspacePage'
 import RukuListPage from './pages/RukuListPage'
 import WordDictionaryPage from './pages/WordDictionaryPage'
 import ComingSoonPage from './pages/ComingSoonPage'
@@ -36,6 +37,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <SurahAyahPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/surahs/:surahNumber/ayahs/:ayahNumber"
+            element={
+              <ProtectedRoute>
+                <AyahWorkspacePage />
               </ProtectedRoute>
             }
           />

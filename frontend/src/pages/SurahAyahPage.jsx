@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import AppShell from '../components/layout/AppShell'
 import Badge from '../components/ui/Badge'
@@ -46,12 +46,17 @@ function AyahNumberBadge({ number }) {
   )
 }
 
-function AyahCard({ ayah, fontSize }) {
+function AyahCard({ ayah, fontSize, surahNumber, pageNumber }) {
   const sizes = FONT_SIZES[fontSize]
   const badge = STATUS_BADGE[ayah.status]
 
   return (
-    <div className="rounded-2xl border border-header-line bg-white p-8">
+    <Link
+      id={`ayah-card-${ayah.ayah_number}`}
+      to={`/surahs/${surahNumber}/ayahs/${ayah.ayah_number}`}
+      state={{ fromPage: pageNumber, scrollToAyah: ayah.ayah_number }}
+      className="block rounded-2xl border border-header-line bg-white p-8 transition-colors hover:border-brand-dark/30"
+    >
       <div className="flex items-center gap-3">
         <AyahNumberBadge number={ayah.ayah_number} />
         <Badge variant={badge.variant}>{badge.label}</Badge>
@@ -74,27 +79,29 @@ function AyahCard({ ayah, fontSize }) {
       </div>
 
       {ayah.translation_text && (
-        <p className="mt-7 leading-relaxed text-heading" style={{ fontSize: `${sizes.translation}px` }}>
+        <p className="mt-7 break-words leading-relaxed text-heading" style={{ fontSize: `${sizes.translation}px` }}>
           <span className="font-semibold text-link">অনুবাদ: </span>
           {ayah.translation_text}
         </p>
       )}
-    </div>
+    </Link>
   )
 }
 
 export default function SurahAyahPage() {
   const { surahNumber } = useParams()
+  const location = useLocation()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [surah, setSurah] = useState(null)
   const [ayahs, setAyahs] = useState([])
   const [loading, setLoading] = useState(true)
-  const [pageIndex, setPageIndex] = useState(0)
   const [fontSize, setFontSize] = useState(14)
   const topRef = useRef(null)
 
+  const pageIndex = Math.max(0, (parseInt(searchParams.get('page'), 10) || 1) - 1)
+
   useEffect(() => {
     setLoading(true)
-    setPageIndex(0)
     Promise.all([
       apiClient.get(`/surahs/${surahNumber}/`),
       apiClient.get(`/surahs/${surahNumber}/ayahs/`),
@@ -111,9 +118,15 @@ export default function SurahAyahPage() {
   const totalPages = pages.length
 
   function goToPage(index) {
-    setPageIndex(index)
+    setSearchParams({ page: String(index + 1) })
     topRef.current?.scrollIntoView({ block: 'start' })
   }
+
+  useEffect(() => {
+    const targetAyah = location.state?.scrollToAyah
+    if (!targetAyah || loading || currentAyahs.length === 0) return
+    document.getElementById(`ayah-card-${targetAyah}`)?.scrollIntoView({ block: 'center' })
+  }, [loading, currentAyahs.length, location.state])
 
   return (
     <AppShell
@@ -163,7 +176,13 @@ export default function SurahAyahPage() {
           <>
             <div className="flex flex-col gap-6">
               {currentAyahs.map((ayah) => (
-                <AyahCard key={ayah.id} ayah={ayah} fontSize={fontSize} />
+                <AyahCard
+                  key={ayah.id}
+                  ayah={ayah}
+                  fontSize={fontSize}
+                  surahNumber={surahNumber}
+                  pageNumber={pageIndex + 1}
+                />
               ))}
             </div>
 

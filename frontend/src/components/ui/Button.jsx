@@ -1,6 +1,7 @@
 const VARIANTS = {
   primary: 'bg-brand-dark text-white hover:bg-brand-dark/90',
   ghost: 'bg-transparent text-brand-dark hover:bg-black/5',
+  success: 'bg-status-success-bg text-status-success-text hover:bg-status-success-bg/70',
 }
 
 export default function Button({

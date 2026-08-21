@@ -143,3 +143,22 @@ class AyahSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at',
         ]
         read_only_fields = ['surah', 'ruku', 'ayah_number', 'verse_key', 'arabic_text']
+
+    def validate(self, attrs):
+        instance = self.instance
+        target_status = attrs.get('status', instance.status if instance else Ayah.Status.DRAFT)
+
+        if target_status == Ayah.Status.FINAL:
+            translation_text = attrs.get(
+                'translation_text', instance.translation_text if instance else ''
+            )
+            if not translation_text.strip():
+                raise serializers.ValidationError(
+                    {'status': 'পূর্ণ অনুবাদ ছাড়া আয়াত Final করা যাবে না।'}
+                )
+            if instance is not None and instance.word_occurrences.filter(meaning__isnull=True).exists():
+                raise serializers.ValidationError(
+                    {'status': 'প্রতিটি শব্দের অর্থ না থাকলে আয়াত Final করা যাবে না।'}
+                )
+
+        return attrs

@@ -57,6 +57,10 @@
   --color-ruku-pill-border: #cfe9dd;
   --color-ruku-pill-text: #0a7a5d;
 
+  --color-status-dot-border-green: #dceee5;
+  --color-status-dot-border-dashed: #c6c2b8;
+  --color-word-hover-bg: #f0faf5;
+
   --shadow-login-card: 0px 40px 106.667px 0px rgba(0, 0, 0, 0.35);
 
   /* Latin glyphs render in Inter; the browser falls through to Noto Sans
