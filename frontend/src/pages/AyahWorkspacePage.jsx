@@ -4,31 +4,27 @@ import { ArrowLeft, CheckCircle2 } from 'lucide-react'
 import AppShell from '../components/layout/AppShell'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
+import WordAnalysisModal from '../components/word/WordAnalysisModal'
 import apiClient from '../api/client'
 import { toBanglaNumeral } from '../utils/numerals'
+import { autoResizeTextarea } from '../utils/textarea'
 
-const TEXTAREA_INITIAL_HEIGHT = 56
-
-function autoResizeTextarea(el, value) {
-  if (!el) return
-  if (!value) {
-    el.style.height = `${TEXTAREA_INITIAL_HEIGHT}px`
-    return
-  }
-  el.style.height = 'auto'
-  el.style.height = `${el.scrollHeight}px`
-}
-
-function WordGridItem({ occurrence }) {
+function WordGridItem({ occurrence, selected, onClick }) {
   return (
-    <div className="flex flex-col items-center gap-1.5 rounded-xl border-[1.333px] border-transparent px-3 py-2 transition-colors hover:border-progress-fill hover:bg-word-hover-bg">
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex flex-col items-center gap-1.5 rounded-xl border-[1.333px] px-3 py-2 transition-colors hover:border-progress-fill hover:bg-word-hover-bg ${
+        selected ? 'border-progress-fill bg-word-hover-bg' : 'border-transparent'
+      }`}
+    >
       <span className="font-arabic text-heading" style={{ fontSize: '32px', lineHeight: 1.8 }}>
         {occurrence.raw_text}
       </span>
       <span className="text-[15.333px] font-semibold text-link">
         {occurrence.meaning_text || '—'}
       </span>
-    </div>
+    </button>
   )
 }
 
@@ -69,6 +65,7 @@ export default function AyahWorkspacePage() {
   const [finalizing, setFinalizing] = useState(false)
   const [justSaved, setJustSaved] = useState(false)
   const [error, setError] = useState(null)
+  const [selectedOccurrenceId, setSelectedOccurrenceId] = useState(null)
 
   const translationRef = useRef(null)
   const notesRef = useRef(null)
@@ -160,6 +157,17 @@ export default function AyahWorkspacePage() {
   const assignedCount = ayah.word_occurrences.length - unassignedCount
   const isFinal = ayah.status === 'final'
   const canFinalize = !isFinal && !isDirty && translationText.trim().length > 0 && unassignedCount === 0
+  const selectedOccurrence = ayah.word_occurrences.find((o) => o.id === selectedOccurrenceId) || null
+
+  function handleWordSaved(updatedOccurrence) {
+    setAyah((prev) => ({
+      ...prev,
+      word_occurrences: prev.word_occurrences.map((o) =>
+        o.id === updatedOccurrence.id ? { ...o, ...updatedOccurrence } : o,
+      ),
+    }))
+    setSelectedOccurrenceId(null)
+  }
 
   return (
     <AppShell
@@ -219,7 +227,12 @@ export default function AyahWorkspacePage() {
             style={{ maxHeight: 'clamp(160px, 40vh, 440px)' }}
           >
             {ayah.word_occurrences.map((occurrence) => (
-              <WordGridItem key={occurrence.id} occurrence={occurrence} />
+              <WordGridItem
+                key={occurrence.id}
+                occurrence={occurrence}
+                selected={occurrence.id === selectedOccurrenceId}
+                onClick={() => setSelectedOccurrenceId(occurrence.id)}
+              />
             ))}
           </div>
         </div>
@@ -272,6 +285,13 @@ export default function AyahWorkspacePage() {
           </div>
         </div>
       </div>
+
+      <WordAnalysisModal
+        occurrence={selectedOccurrence}
+        open={selectedOccurrence !== null}
+        onClose={() => setSelectedOccurrenceId(null)}
+        onSaved={handleWordSaved}
+      />
     </AppShell>
   )
 }

@@ -61,7 +61,10 @@
   --color-status-dot-border-dashed: #c6c2b8;
   --color-word-hover-bg: #f0faf5;
 
+  --color-modal-border: #e4e0d7;
+
   --shadow-login-card: 0px 40px 106.667px 0px rgba(0, 0, 0, 0.35);
+  --shadow-modal: 0px 32px 40px 0px rgba(0, 0, 0, 0.22);
 
   /* Latin glyphs render in Inter; the browser falls through to Noto Sans
      Bengali (with Kalpurush as an extra fallback) for Bengali glyphs —

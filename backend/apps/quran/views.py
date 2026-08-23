@@ -5,7 +5,7 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from apps.quran.models import ActivityLog, Ayah, Ruku, Surah, Word, WordMeaning, WordOccurrence
+from apps.quran.models import ActivityLog, Ayah, Ruku, Surah, Word, WordMeaning, WordNote, WordOccurrence
 from apps.quran.serializers import (
     AyahSerializer,
     RukuSerializer,
@@ -13,6 +13,8 @@ from apps.quran.serializers import (
     WordDetailSerializer,
     WordListSerializer,
     WordMeaningSerializer,
+    WordNoteSerializer,
+    WordOccurrenceSerializer,
 )
 from apps.quran.services.text_normalizer import strip_diacritics
 
@@ -195,6 +197,63 @@ class WordDetailView(generics.RetrieveUpdateAPIView):
         'meanings', 'note', 'occurrences__ayah', 'occurrences__meaning'
     )
     http_method_names = ['get', 'patch', 'head', 'options']
+
+
+class WordNoteView(generics.RetrieveUpdateAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = WordNoteSerializer
+    http_method_names = ['get', 'patch', 'head', 'options']
+
+    def get_object(self):
+        word = get_object_or_404(Word, pk=self.kwargs['word_id'])
+        note, _ = WordNote.objects.get_or_create(word=word)
+        return note
+
+
+class WordOccurrenceMeaningView(generics.GenericAPIView):
+    """Sets a single word_occurrence's meaning from free text — this is the
+    per-ayah override path from CLAUDE.md's "Word meaning: default +
+    override" design, not an in-place edit of a shared WordMeaning row.
+    Matching text on the same word is reused (so repeated overrides don't
+    fork duplicate WordMeaning rows with identical text); otherwise a new
+    WordMeaning is created and only this occurrence is pointed at it."""
+
+    permission_classes = [IsAuthenticated]
+    queryset = WordOccurrence.objects.select_related('word', 'ayah', 'meaning')
+    http_method_names = ['patch', 'head', 'options']
+
+    def patch(self, request, *args, **kwargs):
+        occurrence = self.get_object()
+        meaning_text = (request.data.get('meaning_text') or '').strip()
+        if not meaning_text:
+            return Response({'meaning_text': ['এই ফিল্ড খালি রাখা যাবে না।']}, status=400)
+
+        word = occurrence.word
+        old_meaning_id = occurrence.meaning_id
+
+        is_first_meaning = not WordMeaning.objects.filter(word=word).exists()
+        meaning = WordMeaning.objects.filter(word=word, meaning_text=meaning_text).first()
+        if meaning is None:
+            meaning = WordMeaning.objects.create(word=word, meaning_text=meaning_text)
+
+        if meaning.id == old_meaning_id:
+            return Response(WordOccurrenceSerializer(occurrence).data)
+
+        occurrence.meaning = meaning
+        occurrence.save(update_fields=['meaning'])
+
+        ActivityLog.objects.create(
+            user=request.user,
+            action_type=(
+                ActivityLog.ActionType.WORD_MEANING_ADDED
+                if is_first_meaning
+                else ActivityLog.ActionType.WORD_MEANING_UPDATED
+            ),
+            ayah=occurrence.ayah,
+            word=word,
+        )
+
+        return Response(WordOccurrenceSerializer(occurrence).data)
 
 
 class WordMeaningListView(generics.ListCreateAPIView):

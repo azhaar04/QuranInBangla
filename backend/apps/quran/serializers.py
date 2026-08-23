@@ -62,6 +62,7 @@ class WordNoteSerializer(serializers.ModelSerializer):
             'pattern', 'note_for_pattern', 'grammatical_information',
             'derived_forms', 'notes', 'updated_at',
         ]
+        read_only_fields = ['updated_at']
 
 
 class WordSerializer(serializers.ModelSerializer):
