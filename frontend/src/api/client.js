@@ -32,6 +32,13 @@ apiClient.interceptors.request.use((config) => {
   return config
 })
 
+// AuthContext listens for this to force isAuthenticated=false (and the
+// resulting redirect to /login) — this module sits outside the React tree,
+// so a DOM event is how it signals "the session is really over" upward.
+function notifyLoggedOut() {
+  window.dispatchEvent(new Event('auth:logout'))
+}
+
 let refreshPromise = null
 
 apiClient.interceptors.response.use(
@@ -45,6 +52,7 @@ apiClient.interceptors.response.use(
     const refresh = tokenStorage.getRefresh()
     if (!refresh) {
       tokenStorage.clear()
+      notifyLoggedOut()
       throw error
     }
 
@@ -56,11 +64,16 @@ apiClient.interceptors.response.use(
           refreshPromise = null
         })
       const { data } = await refreshPromise
-      tokenStorage.set(data.access)
+      // ROTATE_REFRESH_TOKENS=True blacklists the refresh token used above
+      // and issues a new one in `data.refresh` — must be persisted, or the
+      // *next* refresh (e.g. the next day) fails with an already-blacklisted
+      // token and silently strands the user on a logged-in-looking page.
+      tokenStorage.set(data.access, data.refresh)
       config.headers.Authorization = `Bearer ${data.access}`
       return apiClient(config)
     } catch (refreshError) {
       tokenStorage.clear()
+      notifyLoggedOut()
       throw refreshError
     }
   },
