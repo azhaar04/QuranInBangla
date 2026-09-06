@@ -78,6 +78,19 @@ class AyahFinalStatusTests(APITestCase):
         self.ayah.refresh_from_db()
         self.assertEqual(self.ayah.status, Ayah.Status.FINAL)
 
+    def test_ayah_detail_exposes_word_is_meaning_final_per_occurrence(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        occurrence_data = response.data['word_occurrences'][0]
+        self.assertFalse(occurrence_data['word_is_meaning_final'])
+
+        self.word.is_meaning_final = True
+        self.word.save(update_fields=['is_meaning_final'])
+
+        response = self.client.get(self.url)
+        occurrence_data = response.data['word_occurrences'][0]
+        self.assertTrue(occurrence_data['word_is_meaning_final'])
+
     def test_finalizing_without_translation_change_logs_finalized_only(self):
         self.ayah.translation_text = 'পরীক্ষা অনুবাদ'
         self.ayah.save(update_fields=['translation_text'])
@@ -248,6 +261,13 @@ class WordOccurrenceAnalysisTests(APITestCase):
         self.assertEqual(log.action_type, ActivityLog.ActionType.WORD_MEANING_UPDATED)
         self.assertFalse(log.content_changed)
         self.assertTrue(log.finalized)
+
+    def test_response_reflects_updated_is_meaning_final_immediately(self):
+        response = self.client.patch(
+            self._url(self.occurrence), {'is_meaning_final': True}, format='json'
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data['word_is_meaning_final'])
 
     def test_unfinalizing_logs_as_content_changed_not_finalized(self):
         self.word.is_meaning_final = True

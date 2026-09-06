@@ -126,10 +126,14 @@ class WordOccurrenceSerializer(serializers.ModelSerializer):
     meaning_text = serializers.CharField(
         source='meaning.meaning_text', read_only=True, default=None
     )
+    word_is_meaning_final = serializers.BooleanField(source='word.is_meaning_final', read_only=True)
 
     class Meta:
         model = WordOccurrence
-        fields = ['id', 'position', 'word', 'word_arabic_text', 'raw_text', 'meaning', 'meaning_text']
+        fields = [
+            'id', 'position', 'word', 'word_arabic_text', 'raw_text', 'meaning', 'meaning_text',
+            'word_is_meaning_final',
+        ]
         read_only_fields = ['word', 'raw_text']
 
 

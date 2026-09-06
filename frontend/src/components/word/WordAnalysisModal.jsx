@@ -131,6 +131,7 @@ export default function WordAnalysisModal({ occurrence, open, onClose, onSaved }
         ...occurrence,
         meaning_text: res.data.meaning_text ?? occurrence.meaning_text,
         meaning: res.data.meaning ?? occurrence.meaning,
+        word_is_meaning_final: res.data.word_is_meaning_final,
       })
     } catch {
       setError('সংরক্ষণ ব্যর্থ হয়েছে, আবার চেষ্টা করুন।')

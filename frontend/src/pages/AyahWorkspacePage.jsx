@@ -10,6 +10,17 @@ import { toBanglaNumeral } from '../utils/numerals'
 import { autoResizeTextarea } from '../utils/textarea'
 
 function WordGridItem({ occurrence, selected, onClick }) {
+  const hasMeaning = Boolean(occurrence.meaning_text)
+  // Both a final and a not-yet-final meaning count as "translated" for the
+  // legend/dashboard progress numbers (unchanged) — but the gloss color
+  // here distinguishes them so it's visible at a glance which words still
+  // need their grammatical info finished and marked Final.
+  const glossColorClass = !hasMeaning
+    ? 'text-muted-2'
+    : occurrence.word_is_meaning_final
+      ? 'text-link'
+      : 'text-status-warning-text'
+
   return (
     <button
       type="button"
@@ -21,19 +32,23 @@ function WordGridItem({ occurrence, selected, onClick }) {
       <span className="font-arabic text-heading" style={{ fontSize: '32px', lineHeight: 1.8 }}>
         {occurrence.raw_text}
       </span>
-      <span className="text-[15.333px] font-semibold text-link">
+      <span className={`text-[15.333px] font-semibold ${glossColorClass}`}>
         {occurrence.meaning_text || '—'}
       </span>
     </button>
   )
 }
 
-function StatusLegend({ assignedCount, unassignedCount }) {
+function StatusLegend({ assignedCount, pendingCount, unassignedCount }) {
   return (
-    <div className="flex shrink-0 items-center gap-4">
+    <div className="flex shrink-0 flex-wrap items-center gap-4">
       <span className="flex items-center gap-2 text-[14.667px] font-medium text-link">
         <span className="h-3 w-3 rounded-[4px] border-[1.333px] border-status-dot-border-green bg-alert-bg" />
         অনুবাদ দেওয়া হয়েছে ({toBanglaNumeral(assignedCount)})
+      </span>
+      <span className="flex items-center gap-2 text-[14.667px] font-medium text-status-warning-text">
+        <span className="h-3 w-3 rounded-[4px] border-[1.333px] border-status-dot-border-warning bg-status-warning-bg" />
+        শব্দ চূড়ান্ত করা বাকি ({toBanglaNumeral(pendingCount)})
       </span>
       <span className="flex items-center gap-2 text-[14.667px] font-medium text-muted-2">
         <span className="h-3 w-3 rounded-[4px] border-[1.333px] border-dashed border-status-dot-border-dashed bg-surface-subtle-3" />
@@ -168,6 +183,9 @@ export default function AyahWorkspacePage() {
 
   const unassignedCount = ayah.word_occurrences.filter((o) => !o.meaning_text).length
   const assignedCount = ayah.word_occurrences.length - unassignedCount
+  const pendingCount = ayah.word_occurrences.filter(
+    (o) => o.meaning_text && !o.word_is_meaning_final,
+  ).length
   const isFinal = ayah.status === 'final'
   const canFinalize = !isFinal && !isDirty && translationText.trim().length > 0 && unassignedCount === 0
   const selectedOccurrence = ayah.word_occurrences.find((o) => o.id === selectedOccurrenceId) || null
@@ -231,7 +249,11 @@ export default function AyahWorkspacePage() {
             <span className="text-[16.667px] font-semibold text-heading">
               {surah?.name_bangla} · আয়াত {toBanglaNumeral(ayah.ayah_number)}
             </span>
-            <StatusLegend assignedCount={assignedCount} unassignedCount={unassignedCount} />
+            <StatusLegend
+              assignedCount={assignedCount}
+              pendingCount={pendingCount}
+              unassignedCount={unassignedCount}
+            />
           </div>
 
           <div
