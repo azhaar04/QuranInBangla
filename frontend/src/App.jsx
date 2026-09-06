@@ -8,7 +8,7 @@ import SurahAyahPage from './pages/SurahAyahPage'
 import AyahWorkspacePage from './pages/AyahWorkspacePage'
 import RukuListPage from './pages/RukuListPage'
 import WordDictionaryPage from './pages/WordDictionaryPage'
-import ComingSoonPage from './pages/ComingSoonPage'
+import SearchPage from './pages/SearchPage'
 
 function App() {
   return (
@@ -68,7 +68,7 @@ function App() {
             path="/search"
             element={
               <ProtectedRoute>
-                <ComingSoonPage title="অনুসন্ধান" />
+                <SearchPage />
               </ProtectedRoute>
             }
           />

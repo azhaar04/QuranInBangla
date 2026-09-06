@@ -163,3 +163,61 @@ class AyahSerializer(serializers.ModelSerializer):
                 )
 
         return attrs
+
+
+class SearchResultSerializer(serializers.ModelSerializer):
+    """One matched ayah for the word search page. `portion` is the full ayah
+    (word-occurrence list) when it fits within `portion_word_limit`
+    (context), otherwise a window of that size centered on the matched
+    word — see SearchAyahView.get_queryset for how the match is found and
+    _windowed_occurrences below for how the window is picked when the match
+    sits too close to one edge of the ayah to center evenly."""
+
+    surah_number = serializers.IntegerField(source='surah.number', read_only=True)
+    surah_name_bangla = serializers.CharField(source='surah.name_bangla', read_only=True)
+    is_full_ayah = serializers.SerializerMethodField()
+    portion = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Ayah
+        fields = ['verse_key', 'surah_number', 'surah_name_bangla', 'ayah_number', 'is_full_ayah', 'portion']
+
+    def _windowed_occurrences(self, obj):
+        if not hasattr(obj, '_search_window'):
+            matched_word_ids = self.context['matched_word_ids']
+            limit = self.context['portion_word_limit']
+            occurrences = list(obj.word_occurrences.all())
+            total = len(occurrences)
+            match_index = next(
+                (i for i, occ in enumerate(occurrences) if occ.word_id in matched_word_ids), 0
+            )
+
+            if total <= limit:
+                obj._search_window = (occurrences, True)
+            else:
+                left_avail = match_index
+                right_avail = total - match_index - 1
+
+                before = min(limit // 2, left_avail)
+                after_needed = limit - 1 - before
+                after = min(after_needed, right_avail)
+                leftover = after_needed - after
+                if leftover > 0:
+                    before = min(before + leftover, left_avail)
+
+                start = match_index - before
+                end = match_index + after + 1
+                obj._search_window = (occurrences[start:end], False)
+
+        return obj._search_window
+
+    def get_is_full_ayah(self, obj):
+        return self._windowed_occurrences(obj)[1]
+
+    def get_portion(self, obj):
+        matched_word_ids = self.context['matched_word_ids']
+        window, _ = self._windowed_occurrences(obj)
+        return [
+            {'text': occurrence.raw_text, 'is_match': occurrence.word_id in matched_word_ids}
+            for occurrence in window
+        ]

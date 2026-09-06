@@ -208,3 +208,122 @@ class WordNoteViewTests(APITestCase):
     def test_patch_does_not_create_activity_log(self):
         self.client.patch(self.url, {'root': 'ب س م'}, format='json')
         self.assertEqual(ActivityLog.objects.count(), 0)
+
+
+class SearchAyahViewTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='admin', password='pass1234')
+        self.client.force_authenticate(user=self.user)
+        self.url = reverse('quran:ayah_search')
+
+        self.surah = Surah.objects.create(
+            number=1, name_arabic='الفاتحة', name_bangla='আল ফাতিহা',
+            meaning_bangla='সূচনা', name_english='Al-Fatihah', total_ayah=7,
+        )
+        self.other_surah = Surah.objects.create(
+            number=2, name_arabic='البقرة', name_bangla='আল বাকারা',
+            meaning_bangla='গাভী', name_english='Al-Baqarah', total_ayah=286,
+        )
+
+        self.match_word = Word.objects.create(arabic_text='بِسْمِ')
+
+    def _make_ayah(self, surah, ayah_number, word_texts, match_positions=()):
+        verse_key = f'{surah.number}:{ayah_number}'
+        ayah = Ayah.objects.create(
+            surah=surah, ayah_number=ayah_number, verse_key=verse_key,
+            arabic_text=' '.join(word_texts),
+        )
+        for position, text in enumerate(word_texts, start=1):
+            word = self.match_word if position in match_positions else Word.objects.create(
+                arabic_text=f'{text}-{verse_key}-{position}'
+            )
+            WordOccurrence.objects.create(ayah=ayah, word=word, position=position, raw_text=text)
+        return ayah
+
+    def _search(self, query):
+        return self.client.get(self.url, {'q': query})
+
+    def test_matches_via_normalized_text_ignoring_diacritics(self):
+        self._make_ayah(self.surah, 1, ['بِسْمِ', 'اللَّهِ'], match_positions=[1])
+
+        response = self._search('بسم')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['count'], 1)
+        self.assertEqual(response.data['results'][0]['verse_key'], '1:1')
+
+    def test_matches_via_exact_arabic_text_substring(self):
+        self._make_ayah(self.surah, 1, ['بِسْمِ', 'اللَّهِ'], match_positions=[1])
+
+        response = self._search('بِسْمِ')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['count'], 1)
+
+    def test_empty_query_returns_no_results(self):
+        self._make_ayah(self.surah, 1, ['بِسْمِ', 'اللَّهِ'], match_positions=[1])
+
+        response = self._search('')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['count'], 0)
+
+    def test_ayah_within_word_limit_returns_full_ayah(self):
+        words = [f'word{i}' for i in range(1, 4)]
+        self._make_ayah(self.surah, 1, words, match_positions=[2])
+
+        response = self._search('بسم')
+        result = response.data['results'][0]
+        self.assertTrue(result['is_full_ayah'])
+        self.assertEqual(len(result['portion']), 3)
+        self.assertEqual([p['is_match'] for p in result['portion']], [False, True, False])
+
+    def test_long_ayah_windows_around_centered_match(self):
+        words = [f'word{i}' for i in range(1, 16)]  # 15 words
+        self._make_ayah(self.surah, 1, words, match_positions=[8])  # index 7
+
+        response = self._search('بسم')
+        result = response.data['results'][0]
+        self.assertFalse(result['is_full_ayah'])
+        portion = result['portion']
+        self.assertEqual(len(portion), 10)
+        # 5 words before the match, 4 after, within the window
+        matches = [i for i, p in enumerate(portion) if p['is_match']]
+        self.assertEqual(matches, [5])
+        self.assertEqual(portion[5]['text'], 'word8')
+        self.assertEqual(portion[0]['text'], 'word3')
+        self.assertEqual(portion[-1]['text'], 'word12')
+
+    def test_long_ayah_windows_fill_from_other_side_near_start(self):
+        words = [f'word{i}' for i in range(1, 16)]  # 15 words
+        self._make_ayah(self.surah, 1, words, match_positions=[2])  # index 1
+
+        response = self._search('بسم')
+        portion = response.data['results'][0]['portion']
+        self.assertEqual(len(portion), 10)
+        self.assertEqual(portion[0]['text'], 'word1')
+        self.assertEqual(portion[-1]['text'], 'word10')
+
+    def test_long_ayah_windows_fill_from_other_side_near_end(self):
+        words = [f'word{i}' for i in range(1, 16)]  # 15 words
+        self._make_ayah(self.surah, 1, words, match_positions=[14])  # index 13
+
+        response = self._search('بسم')
+        portion = response.data['results'][0]['portion']
+        self.assertEqual(len(portion), 10)
+        self.assertEqual(portion[0]['text'], 'word6')
+        self.assertEqual(portion[-1]['text'], 'word15')
+
+    def test_results_ordered_by_surah_then_ayah_number(self):
+        self._make_ayah(self.other_surah, 5, ['x', 'بِسْمِ'], match_positions=[2])
+        self._make_ayah(self.surah, 3, ['x', 'بِسْمِ'], match_positions=[2])
+        self._make_ayah(self.surah, 1, ['x', 'بِسْمِ'], match_positions=[2])
+
+        response = self._search('بسم')
+        verse_keys = [r['verse_key'] for r in response.data['results']]
+        self.assertEqual(verse_keys, ['1:1', '1:3', '2:5'])
+
+    def test_ayah_with_repeated_match_appears_once(self):
+        self._make_ayah(self.surah, 1, ['بِسْمِ', 'x', 'بِسْمِ'], match_positions=[1, 3])
+
+        response = self._search('بسم')
+        self.assertEqual(response.data['count'], 1)
+        matches = [p['is_match'] for p in response.data['results'][0]['portion']]
+        self.assertEqual(matches, [True, False, True])

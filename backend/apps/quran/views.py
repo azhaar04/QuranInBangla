@@ -1,4 +1,4 @@
-from django.db.models import Count, Q
+from django.db.models import Count, Prefetch, Q
 from django.shortcuts import get_object_or_404
 from rest_framework import generics
 from rest_framework.pagination import PageNumberPagination
@@ -9,6 +9,7 @@ from apps.quran.models import ActivityLog, Ayah, Ruku, Surah, Word, WordMeaning,
 from apps.quran.serializers import (
     AyahSerializer,
     RukuSerializer,
+    SearchResultSerializer,
     SurahSerializer,
     WordDetailSerializer,
     WordListSerializer,
@@ -129,6 +130,53 @@ class AyahDetailView(generics.RetrieveUpdateAPIView):
             ),
             ayah=ayah,
         )
+
+
+SEARCH_PORTION_WORD_LIMIT = 10
+
+
+class SearchPagination(PageNumberPagination):
+    page_size = 15
+    page_size_query_param = 'page_size'
+    max_page_size = 50
+
+
+class SearchAyahView(generics.ListAPIView):
+    """Word search: finds ayahs containing a Word whose arabic_text or
+    normalized_text matches the query, one result row per ayah (see
+    SearchResultSerializer for how the shown portion is windowed)."""
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = SearchResultSerializer
+    pagination_class = SearchPagination
+
+    def get_queryset(self):
+        query = self.request.query_params.get('q', '').strip()
+        self.matched_word_ids = set()
+        if not query:
+            return Ayah.objects.none()
+
+        self.matched_word_ids = set(
+            Word.objects.filter(
+                Q(normalized_text__icontains=strip_diacritics(query)) | Q(arabic_text__icontains=query)
+            ).values_list('id', flat=True)
+        )
+        if not self.matched_word_ids:
+            return Ayah.objects.none()
+
+        ayah_ids = WordOccurrence.objects.filter(
+            word_id__in=self.matched_word_ids
+        ).values_list('ayah_id', flat=True).distinct()
+
+        return Ayah.objects.filter(id__in=ayah_ids).select_related('surah').prefetch_related(
+            Prefetch('word_occurrences', queryset=WordOccurrence.objects.order_by('position'))
+        ).order_by('surah__number', 'ayah_number')
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['matched_word_ids'] = getattr(self, 'matched_word_ids', set())
+        context['portion_word_limit'] = SEARCH_PORTION_WORD_LIMIT
+        return context
 
 
 class WordPagination(PageNumberPagination):
