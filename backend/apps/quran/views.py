@@ -1,5 +1,8 @@
-from django.db.models import Count, Prefetch, Q
+from datetime import timedelta
+
+from django.db.models import Count, F, Prefetch, Q
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework import generics
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
@@ -7,6 +10,7 @@ from rest_framework.response import Response
 
 from apps.quran.models import ActivityLog, Ayah, Ruku, Surah, Word, WordMeaning, WordNote, WordOccurrence
 from apps.quran.serializers import (
+    ActivityLogSerializer,
     AyahSerializer,
     RukuSerializer,
     SearchResultSerializer,
@@ -118,7 +122,9 @@ class AyahDetailView(generics.RetrieveUpdateAPIView):
             ayah.status = Ayah.Status.DRAFT
             ayah.save(update_fields=['status'])
 
-        if ayah.translation_text == old_translation_text and ayah.notes == old_notes:
+        content_changed = ayah.translation_text != old_translation_text or ayah.notes != old_notes
+        became_final = old_status != Ayah.Status.FINAL and ayah.status == Ayah.Status.FINAL
+        if not content_changed and not became_final:
             return
 
         ActivityLog.objects.create(
@@ -129,6 +135,8 @@ class AyahDetailView(generics.RetrieveUpdateAPIView):
                 else ActivityLog.ActionType.AYAH_TRANSLATED
             ),
             ayah=ayah,
+            content_changed=content_changed,
+            finalized=became_final,
         )
 
 
@@ -258,13 +266,18 @@ class WordNoteView(generics.RetrieveUpdateAPIView):
         return note
 
 
-class WordOccurrenceMeaningView(generics.GenericAPIView):
-    """Sets a single word_occurrence's meaning from free text — this is the
-    per-ayah override path from CLAUDE.md's "Word meaning: default +
-    override" design, not an in-place edit of a shared WordMeaning row.
-    Matching text on the same word is reused (so repeated overrides don't
-    fork duplicate WordMeaning rows with identical text); otherwise a new
-    WordMeaning is created and only this occurrence is pointed at it."""
+class WordOccurrenceAnalysisView(generics.GenericAPIView):
+    """Backs the Word Grammatical Analysis modal's single Save button, which
+    edits three different things at once: the occurrence's meaning override
+    (per-ayah override path from CLAUDE.md's "Word meaning: default +
+    override" design — matching text on the same word is reused so repeated
+    overrides don't fork duplicate WordMeaning rows), the word's shared note/
+    grammar fields, and the word's is_meaning_final flag. These used to be
+    three independent endpoints/requests, each deciding on its own whether
+    to log an ActivityLog row — so a save that touched more than one of them
+    produced multiple rows for what the client experienced as one action.
+    Consolidated here: exactly one ActivityLog row per Save click, however
+    many of the three things actually changed (client-requested)."""
 
     permission_classes = [IsAuthenticated]
     queryset = WordOccurrence.objects.select_related('word', 'ayah', 'meaning')
@@ -272,34 +285,59 @@ class WordOccurrenceMeaningView(generics.GenericAPIView):
 
     def patch(self, request, *args, **kwargs):
         occurrence = self.get_object()
-        meaning_text = (request.data.get('meaning_text') or '').strip()
-        if not meaning_text:
-            return Response({'meaning_text': ['এই ফিল্ড খালি রাখা যাবে না।']}, status=400)
-
         word = occurrence.word
-        old_meaning_id = occurrence.meaning_id
+        content_changed = False
+        finalized = False
+        is_first_meaning_added = False
 
-        is_first_meaning = not WordMeaning.objects.filter(word=word).exists()
-        meaning = WordMeaning.objects.filter(word=word, meaning_text=meaning_text).first()
-        if meaning is None:
-            meaning = WordMeaning.objects.create(word=word, meaning_text=meaning_text)
+        meaning_text = (request.data.get('meaning_text') or '').strip()
+        if meaning_text:
+            current_text = occurrence.meaning.meaning_text if occurrence.meaning_id else None
+            if meaning_text != current_text:
+                is_first_meaning_added = not WordMeaning.objects.filter(word=word).exists()
+                meaning = WordMeaning.objects.filter(word=word, meaning_text=meaning_text).first()
+                if meaning is None:
+                    meaning = WordMeaning.objects.create(word=word, meaning_text=meaning_text)
+                occurrence.meaning = meaning
+                occurrence.save(update_fields=['meaning'])
+                content_changed = True
 
-        if meaning.id == old_meaning_id:
-            return Response(WordOccurrenceSerializer(occurrence).data)
+        note_data = request.data.get('note')
+        if note_data is not None:
+            note, _ = WordNote.objects.get_or_create(word=word)
+            note_serializer = WordNoteSerializer(note, data=note_data, partial=True)
+            note_serializer.is_valid(raise_exception=True)
+            if any(
+                getattr(note, field) != value for field, value in note_serializer.validated_data.items()
+            ):
+                note_serializer.save()
+                content_changed = True
 
-        occurrence.meaning = meaning
-        occurrence.save(update_fields=['meaning'])
+        if 'is_meaning_final' in request.data:
+            new_final = bool(request.data['is_meaning_final'])
+            if new_final != word.is_meaning_final:
+                word.is_meaning_final = new_final
+                word.save(update_fields=['is_meaning_final'])
+                # Only False->True reads as "finalized" — reverting Final
+                # back off is just a generic content-ish change.
+                if new_final:
+                    finalized = True
+                else:
+                    content_changed = True
 
-        ActivityLog.objects.create(
-            user=request.user,
-            action_type=(
-                ActivityLog.ActionType.WORD_MEANING_ADDED
-                if is_first_meaning
-                else ActivityLog.ActionType.WORD_MEANING_UPDATED
-            ),
-            ayah=occurrence.ayah,
-            word=word,
-        )
+        if content_changed or finalized:
+            ActivityLog.objects.create(
+                user=request.user,
+                action_type=(
+                    ActivityLog.ActionType.WORD_MEANING_ADDED
+                    if is_first_meaning_added
+                    else ActivityLog.ActionType.WORD_MEANING_UPDATED
+                ),
+                ayah=occurrence.ayah,
+                word=word,
+                content_changed=content_changed,
+                finalized=finalized,
+            )
 
         return Response(WordOccurrenceSerializer(occurrence).data)
 
@@ -354,3 +392,94 @@ class WordMeaningSetDefaultView(generics.GenericAPIView):
         meaning.save(update_fields=['is_default'])
 
         return Response(self.get_serializer(meaning).data)
+
+
+class DashboardSummaryView(generics.GenericAPIView):
+    """Aggregate counts for the Dashboard's stat/progress cards. See
+    CLAUDE.md's "Data/semantic note" for the surah-started definition (union
+    of in-progress + Final surahs, matching SurahSerializer.get_status)."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        surahs_total = Surah.objects.count()
+        surahs_not_started = Surah.objects.annotate(
+            final_ayah_count=Count('ayahs', filter=Q(ayahs__status=Ayah.Status.FINAL))
+        ).filter(final_ayah_count=0).count()
+
+        ayahs_total = Ayah.objects.count()
+        ayahs_final = Ayah.objects.filter(status=Ayah.Status.FINAL).count()
+
+        words_total = Word.objects.count()
+        words_final = Word.objects.filter(is_meaning_final=True).count()
+
+        # Per-ayah word-entry progress: an ayah counts as complete only when
+        # EVERY one of its words has been marked is_meaning_final=True (the
+        # client-driven "final" flag) — not merely that every occurrence has
+        # some meaning assigned. word_count__gt=0 guards against a hypothetical
+        # zero-word ayah trivially matching word_count == final_word_count.
+        per_ayah_word_final = Ayah.objects.annotate(
+            word_count=Count('word_occurrences'),
+            final_word_count=Count(
+                'word_occurrences', filter=Q(word_occurrences__word__is_meaning_final=True)
+            ),
+        ).filter(word_count__gt=0, word_count=F('final_word_count')).count()
+
+        return Response({
+            'surahs_started': surahs_total - surahs_not_started,
+            'surahs_total': surahs_total,
+            'ayahs_final': ayahs_final,
+            'ayahs_total': ayahs_total,
+            'word_meaning_final': words_final,
+            'word_meaning_total': words_total,
+            'per_ayah_word_final': per_ayah_word_final,
+            'per_ayah_word_total': ayahs_total,
+        })
+
+
+class ActivityPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 50
+
+
+ACTIVITY_RANGE_DAYS = {'7d': 7, '1m': 30, '6m': 180, '1y': 365}
+
+
+class ActivityLogListView(generics.ListAPIView):
+    """Dashboard Recent Activity feed. With no `range` param, returns the
+    full unfiltered list (paginated) — the time-range pills narrow it down
+    only once the client picks one, they don't apply a default filter."""
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = ActivityLogSerializer
+    pagination_class = ActivityPagination
+
+    def get_queryset(self):
+        queryset = ActivityLog.objects.select_related('ayah__surah', 'word').order_by('-created_at')
+        days = ACTIVITY_RANGE_DAYS.get(self.request.query_params.get('range'))
+        if days is not None:
+            queryset = queryset.filter(created_at__gte=timezone.now() - timedelta(days=days))
+        return queryset
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(queryset)
+        entries = page if page is not None else list(queryset)
+
+        pairs = {(entry.ayah_id, entry.word_id) for entry in entries if entry.ayah_id and entry.word_id}
+        occurrence_map = {}
+        if pairs:
+            ayah_ids, word_ids = zip(*pairs)
+            for occurrence in WordOccurrence.objects.filter(
+                ayah_id__in=set(ayah_ids), word_id__in=set(word_ids)
+            ):
+                key = (occurrence.ayah_id, occurrence.word_id)
+                occurrence_map.setdefault(key, occurrence.id)
+
+        serializer = self.get_serializer(entries, many=True, context={
+            **self.get_serializer_context(), 'occurrence_map': occurrence_map,
+        })
+        if page is not None:
+            return self.get_paginated_response(serializer.data)
+        return Response(serializer.data)

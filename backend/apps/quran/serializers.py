@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from apps.quran.models import Ayah, Ruku, Surah, Word, WordMeaning, WordNote, WordOccurrence
+from apps.quran.models import ActivityLog, Ayah, Ruku, Surah, Word, WordMeaning, WordNote, WordOccurrence
 
 
 class SurahSerializer(serializers.ModelSerializer):
@@ -163,6 +163,42 @@ class AyahSerializer(serializers.ModelSerializer):
                 )
 
         return attrs
+
+
+class ActivityLogSerializer(serializers.ModelSerializer):
+    """Recent Activity feed row (Dashboard). Both `ayah`/`word` context fields
+    on ActivityLog are nullable at the model level, but in practice every row
+    created so far (AyahDetailView, WordOccurrenceAnalysisView) always sets
+    `ayah` — this serializer stays defensive with `default=None` regardless,
+    since ActivityLog itself doesn't enforce that at the DB layer."""
+
+    surah_number = serializers.IntegerField(source='ayah.surah.number', read_only=True, default=None)
+    surah_name_bangla = serializers.CharField(source='ayah.surah.name_bangla', read_only=True, default=None)
+    ayah_number = serializers.IntegerField(source='ayah.ayah_number', read_only=True, default=None)
+    verse_key = serializers.CharField(source='ayah.verse_key', read_only=True, default=None)
+    word_arabic_text = serializers.CharField(source='word.arabic_text', read_only=True, default=None)
+    word_occurrence_id = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ActivityLog
+        fields = [
+            'id', 'action_type', 'created_at', 'content_changed', 'finalized',
+            'surah_number', 'surah_name_bangla', 'ayah_number', 'verse_key',
+            'word_arabic_text', 'word_occurrence_id',
+        ]
+
+    def get_word_occurrence_id(self, obj):
+        """The exact word_occurrence this log entry's edit happened on — lets
+        the frontend reopen the Word Grammar modal on the right occurrence
+        rather than just navigating to the ayah. A word can appear in many
+        ayahs/surahs, but that's not actually ambiguous here: `ayah_id` on
+        the log already pins down which specific ayah the edit happened in.
+        The only real ambiguity is the same word repeating twice within that
+        SAME ayah — this resolves it precisely instead of guessing "first
+        occurrence". Bulk-resolved by the view into `occurrence_map` (same
+        pattern as RukuAyahNumberContextMixin) to avoid N+1 queries."""
+
+        return self.context.get('occurrence_map', {}).get((obj.ayah_id, obj.word_id))
 
 
 class SearchResultSerializer(serializers.ModelSerializer):

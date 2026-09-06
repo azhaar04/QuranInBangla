@@ -1,7 +1,9 @@
 from django.urls import path
 
 from apps.quran.views import (
+    ActivityLogListView,
     AyahDetailView,
+    DashboardSummaryView,
     RukuDetailView,
     RukuListView,
     SearchAyahView,
@@ -15,12 +17,14 @@ from apps.quran.views import (
     WordMeaningListView,
     WordMeaningSetDefaultView,
     WordNoteView,
-    WordOccurrenceMeaningView,
+    WordOccurrenceAnalysisView,
 )
 
 app_name = 'quran'
 
 urlpatterns = [
+    path('dashboard/summary/', DashboardSummaryView.as_view(), name='dashboard_summary'),
+    path('dashboard/activity/', ActivityLogListView.as_view(), name='dashboard_activity'),
     path('surahs/', SurahListView.as_view(), name='surah_list'),
     path('surahs/<int:surah_number>/', SurahDetailView.as_view(), name='surah_detail'),
     path('surahs/<int:surah_number>/rukus/', SurahRukuListView.as_view(), name='surah_ruku_list'),
@@ -40,8 +44,8 @@ urlpatterns = [
         name='word_meaning_set_default',
     ),
     path(
-        'word-occurrences/<int:pk>/meaning/',
-        WordOccurrenceMeaningView.as_view(),
-        name='word_occurrence_meaning',
+        'word-occurrences/<int:pk>/analysis/',
+        WordOccurrenceAnalysisView.as_view(),
+        name='word_occurrence_analysis',
     ),
 ]

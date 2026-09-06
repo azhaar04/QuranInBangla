@@ -220,6 +220,8 @@ history — see "No version/edit history" below.
 | action_type | varchar(30) | `ayah_translated` / `ayah_updated` / `word_meaning_added` / `word_meaning_updated` |
 | ayah_id | FK → ayah | nullable — set for ayah-related actions |
 | word_id | FK → word | nullable — set for word-related actions, and optionally alongside `ayah_id` when the word action happened in the context of a specific ayah (e.g. editing a word meaning from within an ayah view) |
+| content_changed | boolean | default `true` — see "Activity logging" below |
+| finalized | boolean | default `false` — see "Activity logging" below |
 | created_at | timestamp | |
 
 For `ayah_translated` / `ayah_updated`, only `ayah_id` is set. For
@@ -332,16 +334,55 @@ logging" below.
   first-time vs. edited-again:
   - `ayah_translated` — `translation_text`/`notes` went from empty to
     filled for the first time.
-  - `ayah_updated` — `translation_text`/`notes` already had content and
-    was edited again.
+  - `ayah_updated` — `translation_text` and/or `notes` were edited again,
+    **or** the ayah's `status` became `final` with no text change in the
+    same request (e.g. marking an already-translated ayah Final). Any
+    combination of these in one Save still produces exactly one row.
   - `word_meaning_added` — the first `word_meaning` ever created for that
     word (mirrors the `is_first_meaning` check already in
     `WordMeaning.save()`).
-  - `word_meaning_updated` — an existing meaning was edited, or an
-    additional (non-first) meaning was added to a word that already had one.
+  - `word_meaning_updated` — deliberately broad: an existing meaning was
+    edited, an additional (non-first) meaning was added, the word's
+    `word_note` (grammar fields) was edited, and/or `is_meaning_final` was
+    toggled. All three (meaning override, note, is_meaning_final) are
+    saved together from the Word Grammatical Analysis modal's single Save
+    button (`WordOccurrenceAnalysisView`) — **exactly one row is created
+    per Save click**, however many of the three actually changed, never
+    one row per changed field. `WordNoteView`'s own PATCH endpoint (used
+    for the initial GET, and reachable directly) still does NOT log on its
+    own — logging only happens through the combined analysis endpoint.
+- `content_changed` / `finalized` (both `BooleanField`, `content_changed`
+  defaults `True`, `finalized` defaults `False`) are **orthogonal to
+  `action_type`** — they record whether THIS save edited content
+  (translation/notes, or word meaning/note) and/or newly marked the item
+  Final, since one Save can do either, both, or (rarely) just the latter.
+  `finalized` is only set True on a **False→True** flip; reverting Final
+  back off logs as `content_changed=True, finalized=False` (a generic
+  update, not "finalized"). Recent Activity text is one unified template
+  for both ayah and word rows — `{ref} আয়াতের তথ্য {verb}` /
+  `{word} শব্দের তথ্য {verb}` — where `{verb}` is built from the two flags:
+  - `content_changed` only → "ইনপুট দেওয়া হয়েছে" (first-time types:
+    `ayah_translated` / `word_meaning_added`) or "আপডেট করা হয়েছে"
+    (otherwise)
+  - `finalized` only (`content_changed=False`) → "ফাইনাল করা হয়েছে"
+  - both → the two verbs joined with "ও", e.g. "আপডেট করা হয়েছে ও
+    ফাইনাল করা হয়েছে"
+  - See `ActivityText` in `DashboardPage.jsx` for the exact composition.
 - Clicking an activity item in the dashboard navigates to the relevant
   ayah or word page (frontend derives the route from `ayah_id`/`word_id`
   in the API response, e.g. via `ayah.verse_key` or `word.arabic_text`).
+  For word activities, `ActivityLogSerializer.word_occurrence_id` resolves
+  the exact occurrence the edit happened on (bulk-resolved per page to
+  avoid N+1 — see `ActivityLogListView.list()`), so the frontend can jump
+  straight to that occurrence's Word Grammatical Analysis modal instead of
+  just the ayah page. A word appearing in many ayahs/surahs is NOT
+  ambiguous here — `ayah_id` on the log already pins the exact ayah the
+  edit happened in; the only real ambiguity resolved by
+  `word_occurrence_id` is the same word repeating twice within that one
+  ayah. Note/`is_meaning_final` data is word-level (shared across all
+  occurrences), so which occurrence the modal opens on doesn't affect
+  correctness for those two fields — only the meaning-text field
+  pre-fills differently per occurrence.
 
 ### No multi-ayah context notes
 Only per-ayah notes (single `ayah.notes` field). No cross-ayah grouping.

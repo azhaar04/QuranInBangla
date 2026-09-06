@@ -111,36 +111,26 @@ export default function WordAnalysisModal({ occurrence, open, onClose, onSaved }
     setSaving(true)
     setError(null)
     try {
-      const noteRequest = apiClient.patch(`/words/${occurrence.word}/note/`, {
-        root: note.root,
-        meaning_basra: note.meaning_basra,
-        meaning_kufa: note.meaning_kufa,
-        meaning_baghdad: note.meaning_baghdad,
-        pattern: note.pattern,
-        note_for_pattern: note.note_for_pattern,
-        grammatical_information: note.grammatical_information,
-        derived_forms: note.derived_forms,
-        notes: note.notes,
-      })
-
-      const finalRequest = apiClient.patch(`/words/${occurrence.word}/`, {
+      const res = await apiClient.patch(`/word-occurrences/${occurrence.id}/analysis/`, {
+        meaning_text: meaningText.trim(),
+        note: {
+          root: note.root,
+          meaning_basra: note.meaning_basra,
+          meaning_kufa: note.meaning_kufa,
+          meaning_baghdad: note.meaning_baghdad,
+          pattern: note.pattern,
+          note_for_pattern: note.note_for_pattern,
+          grammatical_information: note.grammatical_information,
+          derived_forms: note.derived_forms,
+          notes: note.notes,
+        },
         is_meaning_final: isMeaningFinal,
       })
 
-      const trimmedMeaning = meaningText.trim()
-      const meaningChanged = trimmedMeaning && trimmedMeaning !== (occurrence.meaning_text || '')
-      const meaningRequest = meaningChanged
-        ? apiClient.patch(`/word-occurrences/${occurrence.id}/meaning/`, {
-            meaning_text: trimmedMeaning,
-          })
-        : null
-
-      const [, , occurrenceRes] = await Promise.all([noteRequest, finalRequest, meaningRequest])
-
       onSaved({
         ...occurrence,
-        meaning_text: occurrenceRes?.data.meaning_text ?? occurrence.meaning_text,
-        meaning: occurrenceRes?.data.meaning ?? occurrence.meaning,
+        meaning_text: res.data.meaning_text ?? occurrence.meaning_text,
+        meaning: res.data.meaning ?? occurrence.meaning,
       })
     } catch {
       setError('সংরক্ষণ ব্যর্থ হয়েছে, আবার চেষ্টা করুন।')

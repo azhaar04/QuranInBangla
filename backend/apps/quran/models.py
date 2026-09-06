@@ -173,6 +173,15 @@ class ActivityLog(models.Model):
     action_type = models.CharField(max_length=30, choices=ActionType.choices)
     ayah = models.ForeignKey(Ayah, on_delete=models.CASCADE, null=True, blank=True, related_name='activity_logs')
     word = models.ForeignKey(Word, on_delete=models.CASCADE, null=True, blank=True, related_name='activity_logs')
+    # Orthogonal to action_type: a single Save can both edit content (ayah
+    # translation/notes, or word meaning/note) AND mark the item Final in
+    # the same request — these two flags let the Recent Activity feed say
+    # exactly which of those happened, instead of guessing from action_type
+    # alone (default=True on content_changed backfills existing rows
+    # correctly, since finalize-without-content-change logging didn't exist
+    # before these fields were added).
+    content_changed = models.BooleanField(default=True)
+    finalized = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 
     class Meta:

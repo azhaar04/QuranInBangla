@@ -69,6 +69,7 @@ export default function AyahWorkspacePage() {
 
   const translationRef = useRef(null)
   const notesRef = useRef(null)
+  const autoOpenedOccurrenceRef = useRef(false)
 
   useEffect(() => {
     setLoading(true)
@@ -86,6 +87,18 @@ export default function AyahWorkspacePage() {
       })
       .finally(() => setLoading(false))
   }, [verseKey, surahNumber])
+
+  // Coming from a Dashboard "word meaning" activity row: open the Word
+  // Grammar modal directly on that occurrence instead of just landing on the
+  // ayah. Guarded by a ref (not a [loading, ayah] dep) so saving a word later
+  // doesn't reopen the modal — this should only ever fire once, right after load.
+  useEffect(() => {
+    if (loading || !ayah || autoOpenedOccurrenceRef.current) return
+    if (location.state?.openOccurrenceId) {
+      setSelectedOccurrenceId(location.state.openOccurrenceId)
+    }
+    autoOpenedOccurrenceRef.current = true
+  }, [loading, ayah, location.state])
 
   useEffect(() => {
     autoResizeTextarea(translationRef.current, translationText)
